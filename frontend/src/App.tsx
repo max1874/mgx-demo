@@ -1,42 +1,133 @@
-import { useState } from 'react'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import Login from '@/pages/Login';
+import Signup from '@/pages/Signup';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { Loader2, LogOut, User } from 'lucide-react';
 
-function App() {
-  const [count, setCount] = useState(0)
+function HomePage() {
+  const { user, profile, signOut, loading } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-      <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
-        <h1 className="text-4xl font-bold text-gray-800 mb-4">
-          MGX Demo
-        </h1>
-        <p className="text-gray-600 mb-6">
-          AI 协同开发平台 - 开发环境已就绪
-        </p>
-        
-        <div className="bg-indigo-50 rounded-lg p-6 mb-6">
-          <p className="text-sm text-gray-700 mb-2">技术栈:</p>
-          <ul className="text-sm text-gray-600 space-y-1">
-            <li>✓ Vite + React 18</li>
-            <li>✓ TypeScript</li>
-            <li>✓ Tailwind CSS</li>
-            <li>✓ shadcn/ui</li>
-          </ul>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      <header className="border-b bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            MGX Demo
+          </h1>
+          
+          {user && (
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4" />
+                <span className="font-medium">{profile?.username || user.email}</span>
+                {profile && (
+                  <span className="text-muted-foreground">
+                    ({profile.credits} credits)
+                  </span>
+                )}
+              </div>
+              <Button variant="outline" size="sm" onClick={handleSignOut}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
+          )}
         </div>
+      </header>
 
-        <div className="flex flex-col items-center space-y-4">
-          <button
-            onClick={() => setCount((count) => count + 1)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-6 rounded-lg transition-colors duration-200"
-          >
-            计数: {count}
-          </button>
-          <p className="text-xs text-gray-500">
-            点击按钮测试 React 状态管理
-          </p>
+      <main className="container mx-auto px-4 py-12">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4">
+              Welcome to MGX Demo
+            </h2>
+            <p className="text-xl text-muted-foreground">
+              AI-Powered Development Platform with Multi-Agent Collaboration
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6 mb-12">
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
+              <h3 className="text-xl font-semibold mb-2">🤖 AI Agents</h3>
+              <p className="text-muted-foreground">
+                Collaborate with specialized AI agents for different development tasks
+              </p>
+            </div>
+            
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
+              <h3 className="text-xl font-semibold mb-2">💬 Smart Chat</h3>
+              <p className="text-muted-foreground">
+                Interactive chat interface with context-aware responses
+              </p>
+            </div>
+            
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
+              <h3 className="text-xl font-semibold mb-2">📝 Code Editor</h3>
+              <p className="text-muted-foreground">
+                Built-in code editor with syntax highlighting and auto-completion
+              </p>
+            </div>
+            
+            <div className="p-6 bg-white dark:bg-gray-800 rounded-lg border shadow-sm">
+              <h3 className="text-xl font-semibold mb-2">🚀 Deploy</h3>
+              <p className="text-muted-foreground">
+                One-click deployment to production environments
+              </p>
+            </div>
+          </div>
+
+          {user && profile && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-2">Your Account</h3>
+              <div className="space-y-2 text-sm">
+                <p><strong>Username:</strong> {profile.username}</p>
+                <p><strong>Email:</strong> {user.email}</p>
+                <p><strong>Credits:</strong> {profile.credits}</p>
+                <p><strong>Subscription:</strong> {profile.subscription_tier}</p>
+                <p><strong>Member since:</strong> {new Date(profile.created_at).toLocaleDateString()}</p>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      </main>
     </div>
-  )
+  );
 }
 
-export default App
+function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <HomePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+
+export default App;
