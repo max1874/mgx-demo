@@ -147,6 +147,7 @@ export function Sidebar() {
       .from('conversations')
       .insert({
         project_id: currentProjectId,
+        user_id: user.id,
         title: `New Conversation ${conversations.length + 1}`,
       })
       .select()
@@ -265,8 +266,8 @@ export function Sidebar() {
               {agents.map((agent) => (
                 <Card key={agent.id}>
                   <CardContent className="p-3">
-                    <p className="text-sm font-medium">{agent.name}</p>
-                    <p className="text-xs text-muted-foreground">{agent.role}</p>
+                    <p className="text-sm font-medium">{agent.display_name}</p>
+                    <p className="text-xs text-muted-foreground">{agent.description}</p>
                   </CardContent>
                 </Card>
               ))}
