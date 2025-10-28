@@ -1,14 +1,7 @@
-/**
- * AgentStatusIndicator Component
- * 
- * Displays the current active agent and their execution state.
- * 
- * @author Alex (Full-stack Engineer)
- * @date 2025-01-28
- */
-
 import { Bot, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import type { AgentName, AgentState } from '@/lib/agents/types';
+
+type AgentName = 'Mike' | 'Emma' | 'Bob' | 'Alex' | 'David' | 'Iris';
+type AgentState = 'idle' | 'thinking' | 'executing' | 'completed' | 'failed';
 
 interface AgentStatusIndicatorProps {
   agentName: AgentName;
@@ -24,26 +17,25 @@ const AGENT_COLORS: Record<AgentName, string> = {
   Iris: 'bg-pink-500',
 };
 
-const STATE_CONFIG: Record<AgentState, { icon: React.ReactNode; label: string; animate?: boolean }> = {
-  idle: { icon: <Bot className="h-4 w-4" />, label: 'Idle' },
-  thinking: { icon: <Loader2 className="h-4 w-4 animate-spin" />, label: 'Thinking', animate: true },
-  executing: { icon: <Loader2 className="h-4 w-4 animate-spin" />, label: 'Executing', animate: true },
-  completed: { icon: <CheckCircle2 className="h-4 w-4" />, label: 'Completed' },
-  failed: { icon: <XCircle className="h-4 w-4" />, label: 'Failed' },
+const STATE_CONFIG: Record<AgentState, { icon: typeof Bot; label: string; animate: boolean }> = {
+  idle: { icon: Bot, label: 'Idle', animate: false },
+  thinking: { icon: Loader2, label: 'Thinking', animate: true },
+  executing: { icon: Loader2, label: 'Executing', animate: true },
+  completed: { icon: CheckCircle2, label: 'Completed', animate: false },
+  failed: { icon: XCircle, label: 'Failed', animate: false },
 };
 
 export function AgentStatusIndicator({ agentName, state }: AgentStatusIndicatorProps) {
   const config = STATE_CONFIG[state];
-  const colorClass = AGENT_COLORS[agentName];
+  const Icon = config.icon;
+  const color = AGENT_COLORS[agentName];
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg border border-border">
-      <div className={`h-2 w-2 rounded-full ${colorClass} ${config.animate ? 'animate-pulse' : ''}`} />
-      {config.icon}
-      <div className="flex flex-col">
-        <span className="text-xs font-medium">{agentName}</span>
-        <span className="text-xs text-muted-foreground">{config.label}</span>
-      </div>
+    <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-muted/50 border border-border">
+      <div className={`h-2 w-2 rounded-full ${color} ${config.animate ? 'animate-pulse' : ''}`} />
+      <Icon className={`h-4 w-4 ${config.animate ? 'animate-spin' : ''}`} />
+      <span className="text-sm font-medium">{agentName}</span>
+      <span className="text-xs text-muted-foreground">{config.label}</span>
     </div>
   );
 }
