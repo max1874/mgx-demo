@@ -13,8 +13,9 @@ import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
 import { Bot, User } from 'lucide-react';
 import { CodeBlock } from './CodeBlock';
-import type { AgentName } from '@/lib/agents/types';
 import 'highlight.js/styles/github-dark.css';
+
+type AgentName = 'Mike' | 'Emma' | 'Bob' | 'Alex' | 'David' | 'Iris';
 
 interface MessageBubbleProps {
   role: 'user' | 'assistant';
@@ -96,19 +97,19 @@ export function MessageBubble({ role, content, agentName, timestamp }: MessageBu
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight, rehypeRaw]}
                   components={{
-                    code({ node, className, children, ...props }) {
+                    code({ node, className, children }) {
                       const match = /language-(\w+)/.exec(className || '');
                       const codeContent = String(children).replace(/\n$/, '');
                       const isInline = !match && !className;
                       
-                      return isInline ? (
-                        <CodeBlock code={codeContent} inline={true} />
-                      ) : (
+                      return !isInline && match ? (
                         <CodeBlock
-                          language={match?.[1]}
+                          language={match[1]}
                           code={codeContent}
                           inline={false}
                         />
+                      ) : (
+                        <CodeBlock code={codeContent} inline={true} />
                       );
                     },
                     p({ children }) {
