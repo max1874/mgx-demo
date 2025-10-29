@@ -68,6 +68,7 @@ export function ChatArea() {
     agentName: string;
     content: string;
   } | null>(null);
+  const [orchestratorError, setOrchestratorError] = useState<string | null>(null);
   
   const orchestratorRef = useRef<AgentOrchestrator | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -88,22 +89,35 @@ export function ChatArea() {
   // Initialize orchestrator when conversation is ready
   useEffect(() => {
     if (currentConversationId && !orchestratorRef.current) {
-      orchestratorRef.current = new AgentOrchestrator({
-        conversationId: currentConversationId,
-        onAgentMessage: (agentName, content) => {
-          console.log(`Agent ${agentName} message:`, content);
-        },
-        onStreamChunk: (agentName, chunk) => {
-          setStreamingMessage(prev => ({
-            agentName,
-            content: (prev?.content || '') + chunk,
-          }));
-        },
-        onError: (error) => {
-          console.error('Orchestrator error:', error);
-          toast.error(`Error: ${error.message}`);
-        },
-      });
+      try {
+        orchestratorRef.current = new AgentOrchestrator({
+          conversationId: currentConversationId,
+          onAgentMessage: (agentName, content) => {
+            console.log(`Agent ${agentName} message:`, content);
+          },
+          onStreamChunk: (agentName, chunk) => {
+            setStreamingMessage(prev => ({
+              agentName,
+              content: (prev?.content || '') + chunk,
+            }));
+          },
+          onError: (error) => {
+            console.error('Orchestrator error:', error);
+            const message = error.message || 'Agent orchestrator encountered an error';
+            setOrchestratorError(message);
+            toast.error(`Error: ${message}`);
+          },
+        });
+        setOrchestratorError(null);
+      } catch (error) {
+        console.error('Failed to initialize AgentOrchestrator:', error);
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to initialize intelligent agents. Please check configuration.';
+        setOrchestratorError(message);
+        toast.error(message);
+      }
     }
 
     return () => {
@@ -201,6 +215,21 @@ export function ChatArea() {
           <Button onClick={initializeConversation} variant="outline">
             Retry
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (orchestratorError) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="max-w-md text-center space-y-2">
+          <h2 className="text-lg font-semibold">AI workspace unavailable</h2>
+          <p className="text-sm text-muted-foreground">{orchestratorError}</p>
+          <p className="text-xs text-muted-foreground">
+            Check that your environment variables include a valid LLM API key such as
+            `VITE_OPENROUTER_API_KEY`, `VITE_OPENAI_API_KEY`, or `VITE_CLAUDE_API_KEY`, then reload.
+          </p>
         </div>
       </div>
     );
