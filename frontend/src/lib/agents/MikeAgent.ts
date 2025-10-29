@@ -352,6 +352,7 @@ Format as a clear, structured response.`;
       [AgentRole.BOB]: 'Bob',
       [AgentRole.ALEX]: 'Alex',
       [AgentRole.DAVID]: 'David',
+      [AgentRole.SYSTEM]: 'System',
     };
     return names[role] || role;
   }
