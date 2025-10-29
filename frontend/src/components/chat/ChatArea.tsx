@@ -6,8 +6,9 @@
  * Updated with optimistic UI updates for better UX.
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageList } from './MessageList';
+import { ModelSelector } from './ModelSelector';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { 
@@ -21,6 +22,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLayout } from '@/contexts/LayoutContext';
+import { useModel } from '@/contexts/ModelContext';
 import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { AgentOrchestrator } from '@/lib/agents/AgentOrchestrator';
 import { createConversation } from '@/lib/api/conversations';
@@ -35,60 +37,48 @@ interface PendingMessage {
   role: 'user' | 'assistant';
   content: string;
   agent_name?: string;
-  conversation_id: string;
   created_at: string;
   isPending: true;
 }
 
-interface QueuedMessage {
-  id: string;
-  content: string;
-  conversationId: string;
-}
-
-// Agent avatars for quick actions - using local image assets
+// Agent avatars for quick actions - using UI Avatars service
 const agents = [
-  {
-    name: 'Mike',
-    avatar: '/images/Mike-TeamLeader-Avatar.BVQZLCeX.png',
-    color: 'bg-blue-500',
-    title: 'Team Leader'
+  { 
+    name: 'Mike', 
+    avatar: 'https://ui-avatars.com/api/?name=Mike&background=3b82f6&color=fff&size=128', 
+    color: 'bg-blue-500', 
+    title: 'Team Leader' 
   },
-  {
-    name: 'Emma',
-    avatar: '/images/Emma-ProductManager-Avatar.DAgh_sAa.png',
-    color: 'bg-pink-500',
-    title: 'Product Manager'
+  { 
+    name: 'Emma', 
+    avatar: 'https://ui-avatars.com/api/?name=Emma&background=ec4899&color=fff&size=128', 
+    color: 'bg-pink-500', 
+    title: 'Product Manager' 
   },
-  {
-    name: 'Bob',
-    avatar: '/images/Bob-Architect-Avatar.Dwg49-6j.png',
-    color: 'bg-purple-500',
-    title: 'System Architect'
+  { 
+    name: 'Bob', 
+    avatar: 'https://ui-avatars.com/api/?name=Bob&background=a855f7&color=fff&size=128', 
+    color: 'bg-purple-500', 
+    title: 'System Architect' 
   },
-  {
-    name: 'Alex',
-    avatar: '/images/Alex-Engineer-Avatar.DMF78Ta0.png',
-    color: 'bg-green-500',
-    title: 'Full-stack Engineer'
+  { 
+    name: 'Alex', 
+    avatar: 'https://ui-avatars.com/api/?name=Alex&background=22c55e&color=fff&size=128', 
+    color: 'bg-green-500', 
+    title: 'Full-stack Engineer' 
   },
-  {
-    name: 'David',
-    avatar: '/images/David-DataAnalyst-Avatar.JI1m4RZ8.png',
-    color: 'bg-orange-500',
-    title: 'Data Analyst'
+  { 
+    name: 'David', 
+    avatar: 'https://ui-avatars.com/api/?name=David&background=f97316&color=fff&size=128', 
+    color: 'bg-orange-500', 
+    title: 'Data Analyst' 
   },
 ];
 
 export function ChatArea() {
   const { user } = useAuth();
-  const { 
-    currentConversationId, 
-    setCurrentConversation, 
-    refreshConversations,
-    workspaceProjectId,
-    ensureWorkspaceProject,
-  } = useLayout();
+  const { currentConversationId, setCurrentConversation, refreshConversations } = useLayout();
+  const { selectedModel, modelConfig, isChanging } = useModel();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
@@ -99,12 +89,10 @@ export function ChatArea() {
   const [orchestratorError, setOrchestratorError] = useState<string | null>(null);
   
   const orchestratorRef = useRef<AgentOrchestrator | null>(null);
-  const messageQueueRef = useRef<QueuedMessage[]>([]);
-  const isProcessingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Get messages with realtime updates
-  const { messages, loading, error, refetch: refetchMessages } = useRealtimeMessages({
+  const { messages, loading, error } = useRealtimeMessages({
     conversationId: currentConversationId,
     enabled: !!currentConversationId,
   });
@@ -112,77 +100,40 @@ export function ChatArea() {
   // Combine real messages with pending messages
   const allMessages = [
     ...messages,
-    ...pendingMessages.map(
-      (msg) =>
-        ({
-          id: msg.id,
-          conversation_id: msg.conversation_id,
-          role: msg.role,
-          agent_name: msg.agent_name ?? null,
-          content: msg.content,
-          metadata: null,
-          created_at: msg.created_at,
-        } as Message)
-    ),
-  ].sort(
-    (a, b) =>
-      new Date(a.created_at || 0).getTime() -
-      new Date(b.created_at || 0).getTime()
+    ...pendingMessages.map(msg => ({
+      ...msg,
+      conversation_id: currentConversationId || '',
+      topic: '',
+      extension: '',
+      payload: null,
+      event: null,
+      metadata: null,
+      private: false,
+      updated_at: msg.created_at,
+      inserted_at: msg.created_at,
+    } as Message))
+  ].sort((a, b) => 
+    new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
   );
 
-  const processQueue = useCallback(async () => {
-    if (isProcessingRef.current) return;
-    if (!orchestratorRef.current) return;
-
-    isProcessingRef.current = true;
-    setIsSending(true);
-
-    while (messageQueueRef.current.length > 0) {
-      if (!orchestratorRef.current) {
-        break;
-      }
-
-      const queued = messageQueueRef.current[0];
-
-      if (queued.conversationId !== currentConversationId) {
-        setPendingMessages(prev => prev.filter(msg => msg.id !== queued.id));
-        messageQueueRef.current.shift();
-        continue;
-      }
-
-      try {
-        await orchestratorRef.current.processUserRequest(queued.content);
-        setPendingMessages(prev => prev.filter(msg => msg.id !== queued.id));
-        await refetchMessages();
-      } catch (err) {
-        console.error('Error sending message:', err);
-        toast.error('Failed to send message');
-        setPendingMessages(prev => prev.filter(msg => msg.id !== queued.id));
-        setInput(prev => prev || queued.content);
-      } finally {
-        messageQueueRef.current.shift();
-        setStreamingMessage(null);
-      }
-    }
-
-    if (messageQueueRef.current.length === 0) {
-      setIsSending(false);
-    }
-
-    isProcessingRef.current = false;
-  }, [currentConversationId, refetchMessages]);
-
-  // Initialize orchestrator when conversation is ready
+  // Initialize orchestrator when conversation or model changes
   useEffect(() => {
-    if (currentConversationId && !orchestratorRef.current) {
+    if (currentConversationId) {
+      // Clear existing orchestrator
+      if (orchestratorRef.current) {
+        orchestratorRef.current.clear();
+        orchestratorRef.current = null;
+      }
+
+      // Create new orchestrator with selected model
       try {
         orchestratorRef.current = new AgentOrchestrator({
           conversationId: currentConversationId,
+          modelType: selectedModel,
           onAgentMessage: (agentName, content) => {
             console.log(`Agent ${agentName} message:`, content);
             // Clear streaming when complete message arrives
             setStreamingMessage(null);
-            refetchMessages();
           },
           onStreamChunk: (agentName, chunk) => {
             setStreamingMessage(prev => ({
@@ -199,7 +150,7 @@ export function ChatArea() {
           },
         });
         setOrchestratorError(null);
-        processQueue();
+        console.log(`Orchestrator initialized with model: ${modelConfig.displayName}`);
       } catch (error) {
         console.error('Failed to initialize AgentOrchestrator:', error);
         const message =
@@ -217,24 +168,17 @@ export function ChatArea() {
         orchestratorRef.current = null;
       }
     };
-  }, [currentConversationId, refetchMessages, processQueue]);
+  }, [currentConversationId, selectedModel, modelConfig]);
 
   /**
    * Initialize or create new conversation
    */
-  const initializeConversation = async (): Promise<string | null> => {
-    if (!user) return null;
+  const initializeConversation = async () => {
+    if (!user) return;
 
     try {
-      const projectId = workspaceProjectId || (await ensureWorkspaceProject());
-      if (!projectId) {
-        toast.error('Workspace project is not ready yet. Please try again.');
-        return null;
-      }
-
       // Create a new conversation
       const { data, error } = await createConversation({
-        project_id: projectId,
         user_id: user.id,
         title: 'New Conversation',
         mode: 'team',
@@ -243,35 +187,35 @@ export function ChatArea() {
       if (error) throw error;
       if (data) {
         setCurrentConversation(data.id);
-        await refreshConversations(projectId);
-        return data.id;
+        await refreshConversations();
       }
     } catch (err) {
       console.error('Error initializing conversation:', err);
       toast.error('Failed to initialize conversation');
     }
-
-    return null;
   };
 
   /**
    * Handle sending message with optimistic update
    */
   const handleSend = async () => {
-    if (!input.trim()) return;
-
-    let activeConversationId = currentConversationId;
+    if (!input.trim() || isSending || isChanging) return;
 
     // If no conversation, create one first
-    if (!activeConversationId) {
-      activeConversationId = await initializeConversation();
-      if (!activeConversationId) {
-        return;
-      }
+    if (!currentConversationId) {
+      await initializeConversation();
+      // Wait a bit for conversation to be created
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (!orchestratorRef.current) {
+      toast.error('Chat system not ready. Please wait...');
+      return;
     }
 
     const messageContent = input.trim();
     setInput('');
+    setIsSending(true);
     setStreamingMessage(null);
 
     // Add optimistic user message
@@ -279,19 +223,31 @@ export function ChatArea() {
       id: `pending-${Date.now()}`,
       role: 'user',
       content: messageContent,
-      conversation_id: activeConversationId,
       created_at: new Date().toISOString(),
       isPending: true,
     };
     setPendingMessages(prev => [...prev, pendingUserMessage]);
 
-    messageQueueRef.current.push({
-      id: pendingUserMessage.id,
-      content: messageContent,
-      conversationId: activeConversationId,
-    });
-
-    processQueue();
+    try {
+      // Process with orchestrator (this will save to database)
+      await orchestratorRef.current.processUserRequest(messageContent);
+      
+      // Remove pending message after successful send
+      setPendingMessages(prev => prev.filter(msg => msg.id !== pendingUserMessage.id));
+      
+    } catch (err) {
+      console.error('Error sending message:', err);
+      toast.error('Failed to send message');
+      
+      // Remove pending message on error
+      setPendingMessages(prev => prev.filter(msg => msg.id !== pendingUserMessage.id));
+      
+      // Restore input on error
+      setInput(messageContent);
+    } finally {
+      setIsSending(false);
+      setStreamingMessage(null);
+    }
   };
 
   /**
@@ -405,6 +361,7 @@ export function ChatArea() {
                   onKeyPress={handleKeyPress}
                   placeholder="@agent chat, # select files..."
                   className="min-h-[120px] border-0 resize-none focus-visible:ring-0 text-base"
+                  disabled={isSending || isChanging}
                 />
               </div>
               
@@ -422,17 +379,14 @@ export function ChatArea() {
                   </Button>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Button variant="ghost" className="h-9 px-3 text-sm font-medium">
-                    Claude Sonnet 4.5
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
+                  <ModelSelector />
                   <Button
                     onClick={handleSend}
-                    disabled={!input.trim()}
+                    disabled={!input.trim() || isSending || isChanging}
                     size="icon"
                     className="h-9 w-9 rounded-lg"
                   >
-                    {isSending ? (
+                    {isSending || isChanging ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Send className="h-4 w-4" />
@@ -485,6 +439,7 @@ export function ChatArea() {
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message... (Shift+Enter for new line)"
                 className="min-h-[60px] max-h-[200px] resize-none pr-24"
+                disabled={isSending || isChanging}
               />
               
               {/* Attachment buttons */}
@@ -494,6 +449,7 @@ export function ChatArea() {
                   variant="ghost"
                   className="h-8 w-8"
                   title="Attach file"
+                  disabled={isSending || isChanging}
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
@@ -502,6 +458,7 @@ export function ChatArea() {
                   variant="ghost"
                   className="h-8 w-8"
                   title="Attach image"
+                  disabled={isSending || isChanging}
                 >
                   <ImageIcon className="h-4 w-4" />
                 </Button>
@@ -510,6 +467,7 @@ export function ChatArea() {
                   variant="ghost"
                   className="h-8 w-8"
                   title="Voice input"
+                  disabled={isSending || isChanging}
                 >
                   <Mic className="h-4 w-4" />
                 </Button>
@@ -519,11 +477,11 @@ export function ChatArea() {
             {/* Send Button */}
             <Button
               onClick={handleSend}
-              disabled={!input.trim()}
+              disabled={!input.trim() || isSending || isChanging}
               size="lg"
               className="px-6"
             >
-              {isSending ? (
+              {isSending || isChanging ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <>
@@ -535,11 +493,19 @@ export function ChatArea() {
           </div>
 
           {/* Helper text */}
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            {isSending
-              ? 'AI is responding. You can continue typing or send another message.'
-              : 'Press Enter to send, Shift+Enter for new line'}
-          </p>
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-xs text-muted-foreground">
+              {isSending
+                ? 'Processing your request...'
+                : isChanging
+                ? 'Switching model...'
+                : 'Press Enter to send, Shift+Enter for new line'}
+            </p>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Using:</span>
+              <ModelSelector />
+            </div>
+          </div>
         </div>
       </div>
     </div>

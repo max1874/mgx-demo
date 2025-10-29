@@ -21,12 +21,14 @@ import {
   createAgentMessage,
 } from './MessageProtocol';
 import { LLMProvider } from '../llm/LLMProvider';
-import { OpenRouterProvider } from '../llm/OpenRouterProvider';
+import { LLMProviderFactory } from '../llm/LLMProviderFactory';
+import { ModelType } from '../llm/ModelConfig';
 import { createMessage } from '../api/messages';
 import { touchConversation } from '../api/conversations';
 
 interface OrchestratorConfig {
   conversationId: string;
+  modelType?: ModelType;
   onAgentMessage?: (agentName: string, content: string) => void;
   onStreamChunk?: (agentName: string, chunk: string) => void;
   onTaskUpdate?: (task: Task) => void;
@@ -40,15 +42,17 @@ export class AgentOrchestrator {
   private messageHistory: AgentMessage[] = [];
   private activeTasks: Map<string, Task> = new Map();
   private config: OrchestratorConfig;
+  private modelType: ModelType;
 
   constructor(config: OrchestratorConfig) {
     this.config = config;
     this.conversationId = config.conversationId;
+    this.modelType = config.modelType || ModelType.CLAUDE_SONNET;
 
-    // Initialize LLM provider (OpenRouter only)
+    // Initialize LLM provider based on selected model
     this.llmProvider = this.createLLMProvider();
 
-    // Initialize all agents
+    // Initialize all agents with the same LLM provider
     this.agents = new Map();
     this.agents.set(AgentRole.MIKE, new MikeAgent(this.llmProvider));
     this.agents.set(AgentRole.EMMA, new EmmaAgent(this.llmProvider));
@@ -56,24 +60,29 @@ export class AgentOrchestrator {
     this.agents.set(AgentRole.ALEX, new AlexAgent(this.llmProvider));
     this.agents.set(AgentRole.DAVID, new DavidAgent(this.llmProvider));
     
-    console.log('AgentOrchestrator initialized with 5 agents:', Array.from(this.agents.keys()));
+    console.log(`AgentOrchestrator initialized with model: ${this.modelType}`);
+    console.log('Agents:', Array.from(this.agents.keys()));
   }
 
   /**
-   * Create LLM provider based on type
+   * Create LLM provider based on selected model type
    */
   private createLLMProvider(): LLMProvider {
-    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
-    if (!apiKey) {
+    try {
+      return LLMProviderFactory.createProvider(this.modelType);
+    } catch (error) {
+      console.error('Failed to create LLM provider:', error);
       throw new Error(
-        'Missing VITE_OPENROUTER_API_KEY. Please set it in your environment to enable AI features.'
+        `Failed to initialize AI model. ${(error as Error).message}`
       );
     }
+  }
 
-    const model =
-      import.meta.env.VITE_OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
-    console.log('Using OpenRouter provider with model:', model);
-    return new OpenRouterProvider(apiKey, model);
+  /**
+   * Get current model type
+   */
+  getModelType(): ModelType {
+    return this.modelType;
   }
 
   /**
