@@ -25,14 +25,44 @@ import { AgentOrchestrator } from '@/lib/agents/AgentOrchestrator';
 import { createConversation } from '@/lib/api/conversations';
 import { toast } from 'sonner';
 
-// Agent avatars for quick actions
+// Agent avatars for quick actions - using UI Avatars service
 const agents = [
-  { name: 'Mike', avatar: '/avatars/mike.png', color: 'bg-blue-500', title: 'Team Leader' },
-  { name: 'Emma', avatar: '/avatars/emma.png', color: 'bg-pink-500', title: 'Product Manager' },
-  { name: 'Bob', avatar: '/avatars/bob.png', color: 'bg-purple-500', title: 'System Architect' },
-  { name: 'Alex', avatar: '/avatars/alex.png', color: 'bg-green-500', title: 'Full-stack Engineer' },
-  { name: 'David', avatar: '/avatars/david.png', color: 'bg-orange-500', title: 'Data Analyst' },
-  { name: 'Iris', avatar: '/avatars/iris.png', color: 'bg-indigo-500', title: 'Deep Research Specialist' },
+  { 
+    name: 'Mike', 
+    avatar: 'https://ui-avatars.com/api/?name=Mike&background=3b82f6&color=fff&size=128', 
+    color: 'bg-blue-500', 
+    title: 'Team Leader' 
+  },
+  { 
+    name: 'Emma', 
+    avatar: 'https://ui-avatars.com/api/?name=Emma&background=ec4899&color=fff&size=128', 
+    color: 'bg-pink-500', 
+    title: 'Product Manager' 
+  },
+  { 
+    name: 'Bob', 
+    avatar: 'https://ui-avatars.com/api/?name=Bob&background=a855f7&color=fff&size=128', 
+    color: 'bg-purple-500', 
+    title: 'System Architect' 
+  },
+  { 
+    name: 'Alex', 
+    avatar: 'https://ui-avatars.com/api/?name=Alex&background=22c55e&color=fff&size=128', 
+    color: 'bg-green-500', 
+    title: 'Full-stack Engineer' 
+  },
+  { 
+    name: 'David', 
+    avatar: 'https://ui-avatars.com/api/?name=David&background=f97316&color=fff&size=128', 
+    color: 'bg-orange-500', 
+    title: 'Data Analyst' 
+  },
+  { 
+    name: 'Iris', 
+    avatar: 'https://ui-avatars.com/api/?name=Iris&background=6366f1&color=fff&size=128', 
+    color: 'bg-indigo-500', 
+    title: 'Deep Research Specialist' 
+  },
 ];
 
 export function ChatArea() {
@@ -195,9 +225,11 @@ export function ChatArea() {
                 className="relative group cursor-pointer -ml-2.5 first:ml-0 transition-transform hover:scale-110 hover:z-50"
                 style={{ zIndex: agents.length - index }}
               >
-                <div className={`w-14 h-14 rounded-full ${agent.color} flex items-center justify-center text-white text-xl font-bold shadow-lg`}>
-                  {agent.name[0]}
-                </div>
+                <img 
+                  src={agent.avatar} 
+                  alt={agent.name}
+                  className="w-14 h-14 rounded-full shadow-lg"
+                />
                 {/* Hover tooltip */}
                 <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                   <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
@@ -291,11 +323,15 @@ export function ChatArea() {
             {agents.map((agent) => (
               <button
                 key={agent.name}
-                className={`w-8 h-8 rounded-full ${agent.color} flex items-center justify-center text-white text-xs font-medium hover:opacity-80 transition-opacity`}
+                className="relative group"
                 title={`Ask ${agent.name}`}
                 onClick={() => setInput(`@${agent.name} `)}
               >
-                {agent.name[0]}
+                <img 
+                  src={agent.avatar} 
+                  alt={agent.name}
+                  className="w-8 h-8 rounded-full hover:opacity-80 transition-opacity"
+                />
               </button>
             ))}
           </div>
