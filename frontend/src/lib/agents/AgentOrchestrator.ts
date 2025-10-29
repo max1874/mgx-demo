@@ -49,8 +49,12 @@ export class AgentOrchestrator {
     this.conversationId = config.conversationId;
     this.modelType = config.modelType || ModelType.CLAUDE_SONNET;
 
+    console.log('🚀 AgentOrchestrator: Initializing with model type:', this.modelType);
+
     // Initialize LLM provider based on selected model
     this.llmProvider = this.createLLMProvider();
+
+    console.log('📋 AgentOrchestrator: LLM Provider created, model:', this.llmProvider.getModel());
 
     // Initialize all agents with the same LLM provider
     this.agents = new Map();
@@ -60,8 +64,8 @@ export class AgentOrchestrator {
     this.agents.set(AgentRole.ALEX, new AlexAgent(this.llmProvider));
     this.agents.set(AgentRole.DAVID, new DavidAgent(this.llmProvider));
     
-    console.log(`AgentOrchestrator initialized with model: ${this.modelType}`);
-    console.log('Agents:', Array.from(this.agents.keys()));
+    console.log('✅ AgentOrchestrator: All agents initialized with model:', this.llmProvider.getModel());
+    console.log('👥 AgentOrchestrator: Agents:', Array.from(this.agents.keys()));
   }
 
   /**
@@ -69,9 +73,12 @@ export class AgentOrchestrator {
    */
   private createLLMProvider(): LLMProvider {
     try {
-      return LLMProviderFactory.createProvider(this.modelType);
+      console.log('🔧 AgentOrchestrator: Creating LLM provider for model type:', this.modelType);
+      const provider = LLMProviderFactory.createProvider(this.modelType);
+      console.log('✅ AgentOrchestrator: LLM provider created successfully, using model:', provider.getModel());
+      return provider;
     } catch (error) {
-      console.error('Failed to create LLM provider:', error);
+      console.error('❌ AgentOrchestrator: Failed to create LLM provider:', error);
       throw new Error(
         `Failed to initialize AI model. ${(error as Error).message}`
       );
@@ -86,10 +93,19 @@ export class AgentOrchestrator {
   }
 
   /**
+   * Get current model name
+   */
+  getCurrentModel(): string {
+    return this.llmProvider.getModel();
+  }
+
+  /**
    * Process user request
    */
   async processUserRequest(userMessage: string): Promise<void> {
     try {
+      console.log('💬 AgentOrchestrator: Processing user request with model:', this.llmProvider.getModel());
+      
       // Save user message to database
       await createMessage({
         conversation_id: this.conversationId,
@@ -150,7 +166,7 @@ export class AgentOrchestrator {
         }
       }
     } catch (error) {
-      console.error('Error processing user request:', error);
+      console.error('❌ AgentOrchestrator: Error processing user request:', error);
       this.config.onError?.(error as Error);
       
       // Save error message
@@ -204,6 +220,8 @@ export class AgentOrchestrator {
       if (!agent) {
         throw new Error(`Agent ${task.assignee} not found`);
       }
+
+      console.log(`🎯 AgentOrchestrator: Executing task with agent ${assigneeRole}, model:`, this.llmProvider.getModel());
 
       // Update task status
       task.status = TaskStatus.IN_PROGRESS;

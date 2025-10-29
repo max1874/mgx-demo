@@ -17,6 +17,8 @@ export class OpenRouterProvider extends LLMProvider {
       temperature: 0.7,
       maxTokens: 4096,
     });
+    
+    console.log('🔧 OpenRouterProvider: Initialized with model:', this.config.model);
   }
 
   /**
@@ -38,6 +40,8 @@ export class OpenRouterProvider extends LLMProvider {
    */
   async complete(messages: LLMMessage[]): Promise<LLMResponse> {
     try {
+      console.log('📤 OpenRouterProvider: Sending request with model:', this.config.model);
+      
       const response = await fetch(`${this.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -65,6 +69,8 @@ export class OpenRouterProvider extends LLMProvider {
 
       const data = await response.json();
       
+      console.log('📥 OpenRouterProvider: Received response from model:', data.model);
+      
       return {
         content: data.choices[0].message.content,
         model: data.model,
@@ -75,7 +81,7 @@ export class OpenRouterProvider extends LLMProvider {
         },
       };
     } catch (error) {
-      console.error('OpenRouter API error:', error);
+      console.error('❌ OpenRouter API error:', error);
       throw error;
     }
   }
@@ -88,6 +94,8 @@ export class OpenRouterProvider extends LLMProvider {
     onChunk: (chunk: StreamChunk) => void
   ): Promise<void> {
     try {
+      console.log('📤 OpenRouterProvider: Sending streaming request with model:', this.config.model);
+      
       const response = await fetch(`${this.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -155,7 +163,7 @@ export class OpenRouterProvider extends LLMProvider {
         }
       }
     } catch (error) {
-      console.error('OpenRouter streaming error:', error);
+      console.error('❌ OpenRouter streaming error:', error);
       throw error;
     }
   }

@@ -15,6 +15,13 @@ export class LLMProviderFactory {
   static createProvider(modelType: ModelType): LLMProvider {
     const config = getModelConfig(modelType);
     
+    console.log('🔧 LLMProviderFactory: Creating provider for model:', {
+      modelType,
+      displayName: config.displayName,
+      defaultModel: config.defaultModel,
+      provider: config.provider
+    });
+    
     // Get API key from environment
     const apiKey = import.meta.env[config.apiKeyEnvVar];
     
@@ -31,7 +38,9 @@ export class LLMProviderFactory {
       case 'anthropic':
       case 'openai':
       case 'google':
-        return new OpenRouterProvider(apiKey, config.defaultModel);
+        const provider = new OpenRouterProvider(apiKey, config.defaultModel);
+        console.log('✅ LLMProviderFactory: Provider created successfully with model:', provider.getModel());
+        return provider;
       
       default:
         throw new Error(`Unsupported provider: ${config.provider}`);

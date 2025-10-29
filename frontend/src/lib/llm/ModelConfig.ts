@@ -25,14 +25,14 @@ export interface ModelConfig {
 export const MODEL_CONFIGS: Record<ModelType, ModelConfig> = {
   [ModelType.CLAUDE_SONNET]: {
     id: ModelType.CLAUDE_SONNET,
-    name: 'claude-sonnet',
+    name: 'claude-sonnet-4.5',
     displayName: 'Claude Sonnet 4.5',
     description: '高级创作',
     icon: '💎',
     category: 'premium',
     provider: 'anthropic',
     apiKeyEnvVar: 'VITE_OPENROUTER_API_KEY',
-    defaultModel: 'anthropic/claude-3.5-sonnet',
+    defaultModel: 'anthropic/claude-sonnet-4-20250514',
   },
   [ModelType.GPT_5]: {
     id: ModelType.GPT_5,
