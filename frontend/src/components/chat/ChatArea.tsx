@@ -6,7 +6,7 @@
  * Updated with optimistic UI updates for better UX.
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageList } from './MessageList';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -38,6 +38,12 @@ interface PendingMessage {
   conversation_id: string;
   created_at: string;
   isPending: true;
+}
+
+interface QueuedMessage {
+  id: string;
+  content: string;
+  conversationId: string;
 }
 
 // Agent avatars for quick actions - using local image assets
@@ -93,6 +99,8 @@ export function ChatArea() {
   const [orchestratorError, setOrchestratorError] = useState<string | null>(null);
   
   const orchestratorRef = useRef<AgentOrchestrator | null>(null);
+  const messageQueueRef = useRef<QueuedMessage[]>([]);
+  const isProcessingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Get messages with realtime updates
@@ -122,6 +130,48 @@ export function ChatArea() {
       new Date(b.created_at || 0).getTime()
   );
 
+  const processQueue = useCallback(async () => {
+    if (isProcessingRef.current) return;
+    if (!orchestratorRef.current) return;
+
+    isProcessingRef.current = true;
+    setIsSending(true);
+
+    while (messageQueueRef.current.length > 0) {
+      if (!orchestratorRef.current) {
+        break;
+      }
+
+      const queued = messageQueueRef.current[0];
+
+      if (queued.conversationId !== currentConversationId) {
+        setPendingMessages(prev => prev.filter(msg => msg.id !== queued.id));
+        messageQueueRef.current.shift();
+        continue;
+      }
+
+      try {
+        await orchestratorRef.current.processUserRequest(queued.content);
+        setPendingMessages(prev => prev.filter(msg => msg.id !== queued.id));
+        await refetchMessages();
+      } catch (err) {
+        console.error('Error sending message:', err);
+        toast.error('Failed to send message');
+        setPendingMessages(prev => prev.filter(msg => msg.id !== queued.id));
+        setInput(prev => prev || queued.content);
+      } finally {
+        messageQueueRef.current.shift();
+        setStreamingMessage(null);
+      }
+    }
+
+    if (messageQueueRef.current.length === 0) {
+      setIsSending(false);
+    }
+
+    isProcessingRef.current = false;
+  }, [currentConversationId, refetchMessages]);
+
   // Initialize orchestrator when conversation is ready
   useEffect(() => {
     if (currentConversationId && !orchestratorRef.current) {
@@ -149,6 +199,7 @@ export function ChatArea() {
           },
         });
         setOrchestratorError(null);
+        processQueue();
       } catch (error) {
         console.error('Failed to initialize AgentOrchestrator:', error);
         const message =
@@ -166,7 +217,7 @@ export function ChatArea() {
         orchestratorRef.current = null;
       }
     };
-  }, [currentConversationId, refetchMessages]);
+  }, [currentConversationId, refetchMessages, processQueue]);
 
   /**
    * Initialize or create new conversation
@@ -207,7 +258,7 @@ export function ChatArea() {
    * Handle sending message with optimistic update
    */
   const handleSend = async () => {
-    if (!input.trim() || isSending) return;
+    if (!input.trim()) return;
 
     let activeConversationId = currentConversationId;
 
@@ -217,18 +268,10 @@ export function ChatArea() {
       if (!activeConversationId) {
         return;
       }
-      // Wait briefly for state and orchestrator to settle
-      await new Promise(resolve => setTimeout(resolve, 400));
-    }
-
-    if (!orchestratorRef.current) {
-      toast.error('Chat system not ready. Please wait...');
-      return;
     }
 
     const messageContent = input.trim();
     setInput('');
-    setIsSending(true);
     setStreamingMessage(null);
 
     // Add optimistic user message
@@ -242,27 +285,13 @@ export function ChatArea() {
     };
     setPendingMessages(prev => [...prev, pendingUserMessage]);
 
-    try {
-      // Process with orchestrator (this will save to database)
-      await orchestratorRef.current.processUserRequest(messageContent);
-      
-      // Remove pending message after successful send
-      setPendingMessages(prev => prev.filter(msg => msg.id !== pendingUserMessage.id));
-      refetchMessages();
-      
-    } catch (err) {
-      console.error('Error sending message:', err);
-      toast.error('Failed to send message');
-      
-      // Remove pending message on error
-      setPendingMessages(prev => prev.filter(msg => msg.id !== pendingUserMessage.id));
-      
-      // Restore input on error
-      setInput(messageContent);
-    } finally {
-      setIsSending(false);
-      setStreamingMessage(null);
-    }
+    messageQueueRef.current.push({
+      id: pendingUserMessage.id,
+      content: messageContent,
+      conversationId: activeConversationId,
+    });
+
+    processQueue();
   };
 
   /**
@@ -376,7 +405,6 @@ export function ChatArea() {
                   onKeyPress={handleKeyPress}
                   placeholder="@agent chat, # select files..."
                   className="min-h-[120px] border-0 resize-none focus-visible:ring-0 text-base"
-                  disabled={isSending}
                 />
               </div>
               
@@ -400,7 +428,7 @@ export function ChatArea() {
                   </Button>
                   <Button
                     onClick={handleSend}
-                    disabled={!input.trim() || isSending}
+                    disabled={!input.trim()}
                     size="icon"
                     className="h-9 w-9 rounded-lg"
                   >
@@ -457,7 +485,6 @@ export function ChatArea() {
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message... (Shift+Enter for new line)"
                 className="min-h-[60px] max-h-[200px] resize-none pr-24"
-                disabled={isSending}
               />
               
               {/* Attachment buttons */}
@@ -467,7 +494,6 @@ export function ChatArea() {
                   variant="ghost"
                   className="h-8 w-8"
                   title="Attach file"
-                  disabled={isSending}
                 >
                   <Paperclip className="h-4 w-4" />
                 </Button>
@@ -476,7 +502,6 @@ export function ChatArea() {
                   variant="ghost"
                   className="h-8 w-8"
                   title="Attach image"
-                  disabled={isSending}
                 >
                   <ImageIcon className="h-4 w-4" />
                 </Button>
@@ -485,7 +510,6 @@ export function ChatArea() {
                   variant="ghost"
                   className="h-8 w-8"
                   title="Voice input"
-                  disabled={isSending}
                 >
                   <Mic className="h-4 w-4" />
                 </Button>
@@ -495,7 +519,7 @@ export function ChatArea() {
             {/* Send Button */}
             <Button
               onClick={handleSend}
-              disabled={!input.trim() || isSending}
+              disabled={!input.trim()}
               size="lg"
               className="px-6"
             >
@@ -513,7 +537,7 @@ export function ChatArea() {
           {/* Helper text */}
           <p className="text-xs text-muted-foreground mt-2 text-center">
             {isSending
-              ? 'Processing your request...'
+              ? 'AI is responding. You can continue typing or send another message.'
               : 'Press Enter to send, Shift+Enter for new line'}
           </p>
         </div>
