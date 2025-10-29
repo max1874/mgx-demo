@@ -25,13 +25,13 @@ interface MessageBubbleProps {
   streaming?: boolean;
 }
 
-// Agent avatars using UI Avatars service
+// Agent avatars using local image files
 const agentAvatars: Record<string, string> = {
-  Mike: 'https://ui-avatars.com/api/?name=Mike&background=3b82f6&color=fff&size=128',
-  Emma: 'https://ui-avatars.com/api/?name=Emma&background=ec4899&color=fff&size=128',
-  Bob: 'https://ui-avatars.com/api/?name=Bob&background=a855f7&color=fff&size=128',
-  Alex: 'https://ui-avatars.com/api/?name=Alex&background=22c55e&color=fff&size=128',
-  David: 'https://ui-avatars.com/api/?name=David&background=f97316&color=fff&size=128',
+  Mike: '/images/Mike-TeamLeader-Avatar.BVQZLCeX.png',
+  Emma: '/images/Emma-ProductManager-Avatar.DAgh_sAa.png',
+  Bob: '/images/Bob-Architect-Avatar.Dwg49-6j.png',
+  Alex: '/images/Alex-Engineer-Avatar.DMF78Ta0.png',
+  David: '/images/David-DataAnalyst-Avatar.JI1m4RZ8.png',
   Iris: 'https://ui-avatars.com/api/?name=Iris&background=6366f1&color=fff&size=128',
 };
 
