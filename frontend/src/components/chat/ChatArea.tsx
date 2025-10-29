@@ -11,7 +11,7 @@ import { Send, Loader2, Bot } from 'lucide-react';
 import type { Database } from '@/types/database';
 
 type Message = Database['public']['Tables']['messages']['Row'];
-type AgentName = 'Mike' | 'Emma' | 'Bob' | 'Alex' | 'David' | 'Iris';
+type AgentName = 'Mike' | 'Emma' | 'Bob' | 'Alex' | 'David';
 type AgentState = 'idle' | 'thinking' | 'executing' | 'completed' | 'failed';
 
 export function ChatArea() {
@@ -100,7 +100,9 @@ export function ChatArea() {
         .from('messages')
         .insert({
           conversation_id: currentConversationId,
+          topic: 'chat',
           role: 'user',
+          extension: 'txt',
           content: messageContent,
         });
 
@@ -134,8 +136,10 @@ export function ChatArea() {
             // Save agent response
             supabase.from('messages').insert({
               conversation_id: currentConversationId,
+              topic: 'chat',
               role: 'assistant',
               agent_name: 'Alex',
+              extension: 'txt',
               content: response,
             });
             
@@ -173,7 +177,7 @@ export function ChatArea() {
             Select a conversation from the sidebar or create a new one to start chatting with our AI agents.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-8">
-            {['Mike', 'Emma', 'Bob', 'Alex', 'David', 'Iris'].map((agent) => (
+            {['Mike', 'Emma', 'Bob', 'Alex', 'David'].map((agent) => (
               <div key={agent} className="p-4 rounded-lg border border-border bg-card hover:bg-accent transition-colors">
                 <Bot className="h-8 w-8 mx-auto mb-2 text-primary" />
                 <p className="text-sm font-medium text-center">{agent}</p>
@@ -208,15 +212,18 @@ export function ChatArea() {
             </div>
           ) : (
             <>
-              {messages.map((message) => (
-                <MessageBubble
-                  key={message.id}
-                  role={message.role as 'user' | 'assistant'}
-                  content={message.content}
-                  agentName={message.agent_name || undefined}
-                  timestamp={message.created_at}
-                />
-              ))}
+              {messages.map((message) => {
+                const agentName = message.agent_name as AgentName | null;
+                return (
+                  <MessageBubble
+                    key={message.id}
+                    role={message.role as 'user' | 'assistant'}
+                    content={message.content}
+                    agentName={agentName || undefined}
+                    timestamp={message.created_at || undefined}
+                  />
+                );
+              })}
               
               {streamingMessage && (
                 <MessageBubble
