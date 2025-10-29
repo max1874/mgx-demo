@@ -20,12 +20,13 @@ import {
 import { LLMProvider } from '../llm/LLMProvider';
 import { OpenAIProvider } from '../llm/OpenAIProvider';
 import { ClaudeProvider } from '../llm/ClaudeProvider';
+import { OpenRouterProvider } from '../llm/OpenRouterProvider';
 import { createMessage } from '../api/messages';
 import { touchConversation } from '../api/conversations';
 
 interface OrchestratorConfig {
   conversationId: string;
-  llmProvider?: 'openai' | 'claude';
+  llmProvider?: 'openai' | 'claude' | 'openrouter';
   onAgentMessage?: (agentName: string, content: string) => void;
   onStreamChunk?: (agentName: string, chunk: string) => void;
   onTaskUpdate?: (task: Task) => void;
@@ -46,8 +47,8 @@ export class AgentOrchestrator {
 
     // Initialize LLM provider
     const providerType = config.llmProvider || 
-      (import.meta.env.VITE_DEFAULT_LLM_PROVIDER as 'openai' | 'claude') || 
-      'openai';
+      (import.meta.env.VITE_DEFAULT_LLM_PROVIDER as 'openai' | 'claude' | 'openrouter') || 
+      'openrouter';
     
     this.llmProvider = this.createLLMProvider(providerType);
 
@@ -61,21 +62,58 @@ export class AgentOrchestrator {
   /**
    * Create LLM provider based on type
    */
-  private createLLMProvider(type: 'openai' | 'claude'): LLMProvider {
-    if (type === 'claude') {
-      const apiKey = import.meta.env.VITE_CLAUDE_API_KEY;
-      if (!apiKey) {
-        console.warn('Claude API key not found, falling back to OpenAI');
-        return new OpenAIProvider(import.meta.env.VITE_OPENAI_API_KEY);
+  private createLLMProvider(type: 'openai' | 'claude' | 'openrouter'): LLMProvider {
+    // Priority: OpenRouter > Claude > OpenAI
+    if (type === 'openrouter' || !type) {
+      const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+      if (apiKey) {
+        const model = import.meta.env.VITE_OPENROUTER_MODEL || 'anthropic/claude-3.5-sonnet';
+        console.log('Using OpenRouter provider with model:', model);
+        return new OpenRouterProvider(apiKey, model);
       }
-      return new ClaudeProvider(apiKey);
     }
 
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured. Please add VITE_OPENAI_API_KEY to .env.local');
+    if (type === 'claude') {
+      const apiKey = import.meta.env.VITE_CLAUDE_API_KEY;
+      if (apiKey) {
+        console.log('Using Claude provider');
+        return new ClaudeProvider(apiKey);
+      }
     }
-    return new OpenAIProvider(apiKey);
+
+    if (type === 'openai') {
+      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+      if (apiKey) {
+        console.log('Using OpenAI provider');
+        return new OpenAIProvider(apiKey);
+      }
+    }
+
+    // Fallback: try any available provider
+    const openrouterKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+    if (openrouterKey) {
+      console.warn('Falling back to OpenRouter provider');
+      return new OpenRouterProvider(openrouterKey);
+    }
+
+    const claudeKey = import.meta.env.VITE_CLAUDE_API_KEY;
+    if (claudeKey) {
+      console.warn('Falling back to Claude provider');
+      return new ClaudeProvider(claudeKey);
+    }
+
+    const openaiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (openaiKey) {
+      console.warn('Falling back to OpenAI provider');
+      return new OpenAIProvider(openaiKey);
+    }
+
+    throw new Error(
+      'No LLM API key configured. Please add one of the following to .env.local:\n' +
+      '- VITE_OPENROUTER_API_KEY (recommended)\n' +
+      '- VITE_OPENAI_API_KEY\n' +
+      '- VITE_CLAUDE_API_KEY'
+    );
   }
 
   /**
