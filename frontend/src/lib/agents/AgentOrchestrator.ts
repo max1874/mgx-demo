@@ -26,6 +26,7 @@ import { LLMProviderFactory } from '../llm/LLMProviderFactory';
 import { ModelType } from '../llm/ModelConfig';
 import { createMessage } from '../api/messages';
 import { touchConversation } from '../api/conversations';
+import { generateAndUpdateTitle } from '../services/titleGenerator';
 
 interface OrchestratorConfig {
   conversationId: string;
@@ -165,6 +166,12 @@ export class AgentOrchestrator {
 
         // Notify UI that streaming is complete
         this.config.onAgentMessage?.('Mike', fullResponse);
+
+        // Auto-generate conversation title after Mike's response (if needed)
+        // This runs in the background and doesn't block the response
+        generateAndUpdateTitle(this.conversationId, this.llmProvider).catch((error) => {
+          console.error('Failed to generate conversation title:', error);
+        });
 
         // Check if Mike created tasks
         if (response.metadata?.tasks) {
