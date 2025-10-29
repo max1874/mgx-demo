@@ -4,6 +4,7 @@
  * Manages agent lifecycle, task routing, and coordination.
  * This is the central hub that receives user requests and orchestrates
  * the collaboration between different agents.
+ * Supports streaming responses for real-time feedback.
  */
 
 import { MikeAgent } from './MikeAgent';
@@ -25,7 +26,6 @@ import { LLMProviderFactory } from '../llm/LLMProviderFactory';
 import { ModelType } from '../llm/ModelConfig';
 import { createMessage } from '../api/messages';
 import { touchConversation } from '../api/conversations';
-import { generateAndUpdateTitle } from '../services/titleGenerator';
 
 interface OrchestratorConfig {
   conversationId: string;
@@ -101,7 +101,7 @@ export class AgentOrchestrator {
   }
 
   /**
-   * Process user request
+   * Process user request with streaming support
    */
   async processUserRequest(userMessage: string): Promise<void> {
     try {
@@ -143,28 +143,28 @@ export class AgentOrchestrator {
         tasks: Array.from(this.activeTasks.values()),
       });
 
-      // Process with Mike - he will analyze and delegate
-      const response = await mike.processMessage(message);
+      // Process with Mike using streaming
+      let fullResponse = '';
+      
+      const response = await mike.processMessageStreaming(message, (chunk) => {
+        fullResponse += chunk;
+        // Stream each chunk to UI
+        this.config.onStreamChunk?.('Mike', chunk);
+      });
 
       if (response) {
         this.messageHistory.push(response);
 
-        // Save Mike's response to database
+        // Save Mike's complete response to database
         await createMessage({
           conversation_id: this.conversationId,
           role: 'assistant',
           agent_name: 'Mike',
-          content: response.content,
+          content: fullResponse,
         });
 
-        // Notify UI
-        this.config.onAgentMessage?.('Mike', response.content);
-
-        // Auto-generate conversation title after Mike's response (if needed)
-        // This runs in the background and doesn't block the response
-        generateAndUpdateTitle(this.conversationId, this.llmProvider).catch((error) => {
-          console.error('Failed to generate conversation title:', error);
-        });
+        // Notify UI that streaming is complete
+        this.config.onAgentMessage?.('Mike', fullResponse);
 
         // Check if Mike created tasks
         if (response.metadata?.tasks) {
@@ -256,8 +256,13 @@ export class AgentOrchestrator {
 
       this.messageHistory.push(assignmentMessage);
 
-      // Process task with agent
-      const response = await agent.processMessage(assignmentMessage);
+      // Process task with agent (using streaming if available)
+      let fullResponse = '';
+      
+      const response = await agent.processMessageStreaming(assignmentMessage, (chunk) => {
+        fullResponse += chunk;
+        this.config.onStreamChunk?.(agent.getName(), chunk);
+      });
 
       if (response) {
         this.messageHistory.push(response);
@@ -272,7 +277,6 @@ export class AgentOrchestrator {
 
           // Save agent's work to database
           if (executedTask.status === TaskStatus.COMPLETED) {
-            // Get agent name safely
             const agentName = this.getAgentName(agent);
             const resultContent = this.formatTaskResult(agentName, executedTask);
 

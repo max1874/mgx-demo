@@ -7,6 +7,7 @@
  * - Decide when to delegate vs respond directly
  * - Coordinate team members when needed
  * - Provide direct answers for simple queries
+ * - Support streaming responses for real-time feedback
  */
 
 import { BaseAgent } from './BaseAgent';
@@ -243,67 +244,92 @@ Respond in JSON format:
   }
 
   /**
-   * Process message with intelligent routing
+   * Process message with streaming support
    */
-  async processMessage(message: AgentMessage): Promise<AgentMessage | null> {
+  async processMessageStreaming(
+    message: AgentMessage,
+    onChunk: (chunk: string) => void
+  ): Promise<AgentMessage | null> {
     if (message.type !== MessageType.USER_REQUEST) {
       return null;
     }
 
-    // Classify the request
-    const analysis = await this.classifyRequest(message.content);
-    
-    console.log('Request Analysis:', analysis);
+    try {
+      // Step 1: Classify the request (non-streaming, fast)
+      const analysis = await this.classifyRequest(message.content);
+      
+      console.log('Request Analysis:', analysis);
 
-    // Handle direct responses
-    if (!analysis.shouldDelegate) {
-      if (analysis.directResponse) {
+      // Step 2: Handle based on classification
+      if (!analysis.shouldDelegate) {
+        // Simple request - use streaming for direct response
+        if (analysis.directResponse) {
+          // For pre-defined responses, simulate streaming
+          const response = analysis.directResponse;
+          for (let i = 0; i < response.length; i++) {
+            onChunk(response[i]);
+            // Small delay to simulate typing effect
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+          
+          return createAgentMessage(
+            MessageType.AGENT_RESPONSE,
+            response,
+            this.config.role,
+            AgentRole.USER,
+            { analysis }
+          );
+        }
+
+        // Generate streaming response using LLM
+        const fullResponse = await this.generateStreamingResponse(
+          message.content,
+          onChunk
+        );
+
         return createAgentMessage(
           MessageType.AGENT_RESPONSE,
-          analysis.directResponse,
+          fullResponse,
           this.config.role,
-          AgentRole.USER
+          AgentRole.USER,
+          { analysis }
         );
       }
 
-      // Generate direct response using LLM
-      const response = await this.generateResponse(message.content);
+      // Step 3: Complex request - stream the analysis, then create tasks
+      if (analysis.complexity === 'simple' && analysis.requiredAgents.length === 1) {
+        // Single agent task - stream the delegation message
+        const agentName = this.getAgentName(analysis.requiredAgents[0]);
+        const response = `I'll help you with that. Let me assign this to ${agentName}.`;
+        
+        // Stream the response
+        for (let i = 0; i < response.length; i++) {
+          onChunk(response[i]);
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        
+        const tasks: Task[] = [{
+          id: `task-${Date.now()}`,
+          title: message.content.substring(0, 50),
+          description: message.content,
+          assignee: analysis.requiredAgents[0],
+          status: TaskStatus.PENDING,
+          priority: 'high',
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }];
 
-      return createAgentMessage(
-        MessageType.AGENT_RESPONSE,
-        response,
-        this.config.role,
-        AgentRole.USER
-      );
-    }
+        return createAgentMessage(
+          MessageType.AGENT_RESPONSE,
+          response,
+          this.config.role,
+          AgentRole.USER,
+          { tasks, analysis }
+        );
+      }
 
-    // Handle delegation
-    if (analysis.complexity === 'simple' && analysis.requiredAgents.length === 1) {
-      // Single agent task
-      const response = `I'll help you with that. Let me assign this to ${this.getAgentName(analysis.requiredAgents[0])}.`;
-      
-      const tasks: Task[] = [{
-        id: `task-${Date.now()}`,
-        title: message.content.substring(0, 50),
-        description: message.content,
-        assignee: analysis.requiredAgents[0],
-        status: TaskStatus.PENDING,
-        priority: 'high',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }];
-
-      return createAgentMessage(
-        MessageType.AGENT_RESPONSE,
-        response,
-        this.config.role,
-        AgentRole.USER,
-        { tasks }
-      );
-    }
-
-    // Complex project - full analysis and planning
-    const analysisPrompt = `Analyze this project request and create a detailed plan:
+      // Complex project - stream the full analysis
+      const analysisPrompt = `Analyze this project request and create a detailed plan:
 
 User Request: "${message.content}"
 
@@ -318,34 +344,63 @@ Provide:
 
 Format as a clear, structured response.`;
 
-    const planResponse = await this.generateResponse(analysisPrompt);
+      const planResponse = await this.generateStreamingResponse(
+        analysisPrompt,
+        onChunk
+      );
 
-    // Create tasks for team members
-    const tasks: Task[] = analysis.requiredAgents.map((agent, index) => ({
-      id: `task-${Date.now()}-${index}`,
-      title: `${this.getAgentName(agent)}'s contribution`,
-      description: `Work on: ${message.content}`,
-      assignee: agent,
-      status: TaskStatus.PENDING,
-      priority: 'high',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }));
+      // Create tasks for team members
+      const tasks: Task[] = analysis.requiredAgents.map((agent, index) => ({
+        id: `task-${Date.now()}-${index}`,
+        title: `${this.getAgentName(agent)}'s contribution`,
+        description: `Work on: ${message.content}`,
+        assignee: agent,
+        status: TaskStatus.PENDING,
+        priority: 'high',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
 
-    return createAgentMessage(
-      MessageType.AGENT_RESPONSE,
-      planResponse,
-      this.config.role,
-      AgentRole.USER,
-      { tasks }
-    );
+      return createAgentMessage(
+        MessageType.AGENT_RESPONSE,
+        planResponse,
+        this.config.role,
+        AgentRole.USER,
+        { tasks, analysis }
+      );
+
+    } catch (error) {
+      console.error('Error processing message:', error);
+      const errorMsg = "I encountered an issue processing your request. Could you please try again?";
+      
+      // Stream error message
+      for (let i = 0; i < errorMsg.length; i++) {
+        onChunk(errorMsg[i]);
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      
+      return createAgentMessage(
+        MessageType.AGENT_RESPONSE,
+        errorMsg,
+        this.config.role,
+        AgentRole.USER
+      );
+    }
+  }
+
+  /**
+   * Process message (non-streaming, for backward compatibility)
+   */
+  async processMessage(message: AgentMessage): Promise<AgentMessage | null> {
+    // Use streaming version with no-op callback
+    return this.processMessageStreaming(message, () => {});
   }
 
   /**
    * Get friendly agent name
    */
   private getAgentName(role: AgentRole): string {
-    const names: Record<AgentRole, string> = {
+    const names: Partial<Record<AgentRole, string>> = {
       [AgentRole.USER]: 'User',
       [AgentRole.MIKE]: 'Mike',
       [AgentRole.EMMA]: 'Emma',

@@ -1,21 +1,15 @@
 /**
  * Base Agent Class
  * 
- * This abstract class defines the interface and common functionality for all agents.
- * Each agent represents a team member with specific skills and responsibilities.
+ * Provides common functionality for all agents including:
+ * - LLM interaction
+ * - Message processing
+ * - Context management
+ * - Streaming support
  */
 
-import { LLMProvider, LLMMessage } from '../llm/LLMProvider';
-import {
-  AgentMessage,
-  AgentRole,
-  AgentContext,
-  Task,
-  MessageType,
-  TaskStatus,
-  createAgentMessage,
-  updateTaskStatus,
-} from './MessageProtocol';
+import type { LLMProvider } from '../llm/LLMProvider';
+import type { AgentMessage, Task, AgentContext, AgentRole } from './MessageProtocol';
 
 export interface AgentConfig {
   role: AgentRole;
@@ -27,175 +21,101 @@ export interface AgentConfig {
 
 export abstract class BaseAgent {
   protected config: AgentConfig;
-  protected llmProvider: LLMProvider;
   protected context?: AgentContext;
 
   constructor(config: AgentConfig) {
     this.config = config;
-    this.llmProvider = config.llmProvider;
   }
 
   /**
-   * Get the agent's role
-   */
-  getRole(): AgentRole {
-    return this.config.role;
-  }
-
-  /**
-   * Get the agent's name
-   */
-  getName(): string {
-    return this.config.name;
-  }
-
-  /**
-   * Get the agent's description
-   */
-  getDescription(): string {
-    return this.config.description;
-  }
-
-  /**
-   * Set the agent's context
+   * Set agent context
    */
   setContext(context: AgentContext): void {
     this.context = context;
   }
 
   /**
-   * Process a message from another agent or user
+   * Get agent context
+   */
+  getContext(): AgentContext | undefined {
+    return this.context;
+  }
+
+  /**
+   * Get agent name
+   */
+  getName(): string {
+    return this.config.name;
+  }
+
+  /**
+   * Get agent role
+   */
+  getRole(): AgentRole {
+    return this.config.role;
+  }
+
+  /**
+   * Generate response using LLM (non-streaming)
+   */
+  protected async generateResponse(prompt: string): Promise<string> {
+    const messages = [
+      { role: 'system' as const, content: this.config.systemPrompt },
+      { role: 'user' as const, content: prompt },
+    ];
+
+    const response = await this.config.llmProvider.complete(messages);
+    return response.content;
+  }
+
+  /**
+   * Generate streaming response using LLM
+   */
+  protected async generateStreamingResponse(
+    prompt: string,
+    onChunk: (chunk: string) => void
+  ): Promise<string> {
+    const messages = [
+      { role: 'system' as const, content: this.config.systemPrompt },
+      { role: 'user' as const, content: prompt },
+    ];
+
+    let fullResponse = '';
+
+    await this.config.llmProvider.streamComplete(messages, (chunk) => {
+      if (!chunk.done && chunk.content) {
+        fullResponse += chunk.content;
+        onChunk(chunk.content);
+      }
+    });
+
+    return fullResponse;
+  }
+
+  /**
+   * Process message (non-streaming) - to be implemented by subclasses
    */
   abstract processMessage(message: AgentMessage): Promise<AgentMessage | null>;
 
   /**
-   * Execute a task assigned to this agent
+   * Process message with streaming support
+   */
+  async processMessageStreaming(
+    message: AgentMessage,
+    onChunk: (chunk: string) => void
+  ): Promise<AgentMessage | null> {
+    // Default implementation - subclasses can override for custom streaming behavior
+    // For now, just call the non-streaming version
+    return this.processMessage(message);
+  }
+
+  /**
+   * Execute task - to be implemented by subclasses
    */
   abstract executeTask(task: Task): Promise<Task>;
 
   /**
-   * Check if this agent can handle a specific task
+   * Check if agent can handle a specific task
    */
   abstract canHandleTask(task: Task): boolean;
-
-  /**
-   * Generate a response using the LLM
-   */
-  protected async generateResponse(
-    userMessage: string,
-    conversationHistory?: AgentMessage[]
-  ): Promise<string> {
-    const messages: LLMMessage[] = [
-      {
-        role: 'system',
-        content: this.config.systemPrompt,
-      },
-    ];
-
-    // Add conversation history
-    if (conversationHistory) {
-      for (const msg of conversationHistory) {
-        messages.push({
-          role: msg.from === this.config.role ? 'assistant' : 'user',
-          content: `[${msg.from}]: ${msg.content}`,
-        });
-      }
-    }
-
-    // Add current message
-    messages.push({
-      role: 'user',
-      content: userMessage,
-    });
-
-    try {
-      const response = await this.llmProvider.complete(messages);
-      return response.content;
-    } catch (error) {
-      console.error(`Error generating response for ${this.config.role}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Generate a streaming response using the LLM
-   */
-  protected async generateStreamingResponse(
-    userMessage: string,
-    onChunk: (content: string) => void,
-    conversationHistory?: AgentMessage[]
-  ): Promise<void> {
-    const messages: LLMMessage[] = [
-      {
-        role: 'system',
-        content: this.config.systemPrompt,
-      },
-    ];
-
-    // Add conversation history
-    if (conversationHistory) {
-      for (const msg of conversationHistory) {
-        messages.push({
-          role: msg.from === this.config.role ? 'assistant' : 'user',
-          content: `[${msg.from}]: ${msg.content}`,
-        });
-      }
-    }
-
-    // Add current message
-    messages.push({
-      role: 'user',
-      content: userMessage,
-    });
-
-    try {
-      await this.llmProvider.streamComplete(messages, (chunk) => {
-        if (!chunk.done && chunk.content) {
-          onChunk(chunk.content);
-        }
-      });
-    } catch (error) {
-      console.error(`Error generating streaming response for ${this.config.role}:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Send a message to another agent or broadcast
-   */
-  protected sendMessage(
-    type: MessageType,
-    content: string,
-    to?: AgentRole | AgentRole[] | string,
-    metadata?: Record<string, any>
-  ): AgentMessage {
-    return createAgentMessage(type, content, this.config.role, to, metadata);
-  }
-
-  /**
-   * Update task status
-   */
-  protected updateTask(task: Task, status: TaskStatus, result?: any, error?: string): Task {
-    return updateTaskStatus(task, status, result, error);
-  }
-
-  /**
-   * Log agent activity
-   */
-  protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
-    const timestamp = new Date().toISOString();
-    const prefix = `[${timestamp}] [${this.config.role}]`;
-    
-    switch (level) {
-      case 'info':
-        console.log(`${prefix} ${message}`);
-        break;
-      case 'warn':
-        console.warn(`${prefix} ${message}`);
-        break;
-      case 'error':
-        console.error(`${prefix} ${message}`);
-        break;
-    }
-  }
 }
