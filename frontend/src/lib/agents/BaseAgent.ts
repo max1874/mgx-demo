@@ -56,6 +56,23 @@ export abstract class BaseAgent {
   }
 
   /**
+   * Log message with agent name
+   */
+  protected log(message: string, level: 'info' | 'warn' | 'error' = 'info'): void {
+    const prefix = `[${this.config.name}]`;
+    switch (level) {
+      case 'error':
+        console.error(prefix, message);
+        break;
+      case 'warn':
+        console.warn(prefix, message);
+        break;
+      default:
+        console.log(prefix, message);
+    }
+  }
+
+  /**
    * Generate response using LLM (non-streaming)
    */
   protected async generateResponse(prompt: string): Promise<string> {
@@ -102,7 +119,7 @@ export abstract class BaseAgent {
    */
   async processMessageStreaming(
     message: AgentMessage,
-    onChunk: (chunk: string) => void
+    _onChunk: (chunk: string) => void
   ): Promise<AgentMessage | null> {
     // Default implementation - subclasses can override for custom streaming behavior
     // For now, just call the non-streaming version

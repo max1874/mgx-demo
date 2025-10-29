@@ -138,6 +138,37 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user, ensureWorkspaceProject, refreshConversations]);
 
+  // Subscribe to real-time conversation updates
+  useEffect(() => {
+    if (!workspaceProjectId) return;
+
+    console.log('📡 LayoutContext: Setting up realtime subscription for conversations');
+
+    const channel = supabase
+      .channel(`conversations:${workspaceProjectId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'conversations',
+          filter: `project_id=eq.${workspaceProjectId}`,
+        },
+        async (payload) => {
+          console.log('🔔 LayoutContext: Conversation changed:', payload);
+
+          // Refresh conversations to get the latest data
+          await refreshConversations(workspaceProjectId);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('🔌 LayoutContext: Cleaning up realtime subscription');
+      channel.unsubscribe();
+    };
+  }, [workspaceProjectId, refreshConversations]);
+
   const value = {
     sidebarOpen,
     editorOpen,
