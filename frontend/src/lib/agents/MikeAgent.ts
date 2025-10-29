@@ -114,6 +114,21 @@ export class MikeAgent extends BaseAgent {
     this.log('Analyzing user request...');
 
     const userRequest = message.content;
+
+    if (this.isSimpleGreeting(userRequest)) {
+      const greetingResponse =
+        "Hello there! I'm Mike, the team lead. I'd love to help you build something awesome.\n\n" +
+        "Could you share a bit more detail about what you're trying to achieve? For example:\n" +
+        "- What do you want to build or explore?\n" +
+        "- Who is it for?\n" +
+        "- Any specific features or constraints?\n\n" +
+        "Once I have more context, I can bring in the right teammates to assist!";
+
+      return this.sendMessage(
+        MessageType.AGENT_MESSAGE,
+        greetingResponse
+      );
+    }
     
     // Analyze the request using LLM
     const analysisPrompt = `Analyze this user request and create a task breakdown:
@@ -133,13 +148,32 @@ Format your response as a structured plan.`;
       
       // Create tasks based on analysis
       const tasks = this.createTasksFromAnalysis(analysis, userRequest);
+
+      const responseParts = [
+        "I've analyzed your request. Here's what I found:\n",
+        analysis.trim(),
+      ];
+
+      if (tasks.length > 0) {
+        responseParts.push("\nI'm assigning tasks to the team now.");
+      } else {
+        responseParts.push(
+          "\nIt looks like we need a bit more information before the team can jump in." +
+          " Feel free to clarify your goals or add any requirements, and I'll take it from there."
+        );
+      }
+
+      const metadata: Record<string, unknown> = { analysis };
+      if (tasks.length > 0) {
+        metadata.tasks = tasks;
+      }
       
-      // Send response with task assignments
+      // Send response with optional task assignments
       return this.sendMessage(
         MessageType.AGENT_MESSAGE,
-        `I've analyzed your request. Here's the plan:\n\n${analysis}\n\nI'm assigning tasks to the team now.`,
+        responseParts.join('\n'),
         undefined,
-        { tasks, analysis }
+        metadata
       );
     } catch (error) {
       this.log(`Error analyzing request: ${error}`, 'error');
@@ -207,23 +241,39 @@ Requirement: "${requirement}"`;
    */
   private createTasksFromAnalysis(analysis: string, userRequest: string): Task[] {
     const tasks: Task[] = [];
+    const normalizedAnalysis = analysis.toLowerCase();
+
+    const insufficientSignals = [
+      'need more information',
+      'need more details',
+      'too vague',
+      'not enough information',
+      'insufficient detail',
+      'provide more details',
+      'clarify',
+      'unclear requirements',
+    ];
+
+    if (insufficientSignals.some(signal => normalizedAnalysis.includes(signal))) {
+      return tasks;
+    }
 
     // Parse analysis to determine which agents are needed
-    const needsEmma = analysis.toLowerCase().includes('emma') || 
-                     analysis.toLowerCase().includes('requirements') ||
-                     analysis.toLowerCase().includes('prd');
+    const needsEmma = normalizedAnalysis.includes('emma') || 
+                     normalizedAnalysis.includes('requirements') ||
+                     normalizedAnalysis.includes('prd');
     
-    const needsBob = analysis.toLowerCase().includes('bob') ||
-                    analysis.toLowerCase().includes('architecture') ||
-                    analysis.toLowerCase().includes('design');
+    const needsBob = normalizedAnalysis.includes('bob') ||
+                    normalizedAnalysis.includes('architecture') ||
+                    normalizedAnalysis.includes('design');
     
-    const needsAlex = analysis.toLowerCase().includes('alex') ||
-                     analysis.toLowerCase().includes('code') ||
-                     analysis.toLowerCase().includes('implement');
+    const needsAlex = normalizedAnalysis.includes('alex') ||
+                     normalizedAnalysis.includes('code') ||
+                     normalizedAnalysis.includes('implement');
     
-    const needsDavid = analysis.toLowerCase().includes('david') ||
-                      analysis.toLowerCase().includes('data') ||
-                      analysis.toLowerCase().includes('analysis');
+    const needsDavid = normalizedAnalysis.includes('david') ||
+                      normalizedAnalysis.includes('data') ||
+                      normalizedAnalysis.includes('analysis');
 
     // Create tasks based on needs
     if (needsEmma) {
@@ -268,16 +318,44 @@ Requirement: "${requirement}"`;
       ));
     }
 
-    // If no specific agent identified, assign to Alex for simple implementation
-    if (tasks.length === 0) {
-      tasks.push(createTask(
-        'Implementation',
-        `Implement: ${userRequest}`,
-        AgentRole.ALEX,
-        { priority: 'high' }
-      ));
+    return tasks;
+  }
+
+  /**
+   * Detect simple greetings to avoid over-delegating work
+   */
+  private isSimpleGreeting(input: string): boolean {
+    const normalized = input
+      .trim()
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '');
+
+    if (!normalized) {
+      return false;
     }
 
-    return tasks;
+    const greetingPhrases = [
+      'hi',
+      'hey',
+      'hello',
+      'hiya',
+      'yo',
+      'sup',
+      'good morning',
+      'good afternoon',
+      'good evening',
+    ];
+
+    if (greetingPhrases.includes(normalized)) {
+      return true;
+    }
+
+    if (normalized.length <= 20) {
+      return greetingPhrases.some(phrase =>
+        normalized.startsWith(phrase) && normalized.split(/\s+/).length <= 3
+      );
+    }
+
+    return false;
   }
 }
