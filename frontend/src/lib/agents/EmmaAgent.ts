@@ -101,7 +101,7 @@ Always focus on delivering value to users.`;
   /**
    * Execute assigned task
    */
-  async executeTask(task: Task): Promise<Task> {
+  async executeTask(task: Task, onChunk?: (chunk: string) => void): Promise<Task> {
     this.log(`Executing task: ${task.title}`);
 
     try {
@@ -121,7 +121,9 @@ Include:
 
 Format it clearly and professionally.`;
 
-      const prd = await this.generateResponse(prdPrompt);
+      const prd = onChunk
+        ? await this.generateStreamingResponse(prdPrompt, onChunk)
+        : await this.generateResponse(prdPrompt);
 
       task.status = TaskStatus.COMPLETED;
       task.result = {

@@ -377,7 +377,7 @@ Remember: These are real work assignments, not generic templates. Be specific ab
   /**
    * Execute task (Mike coordinates but doesn't execute directly)
    */
-  async executeTask(task: Task): Promise<Task> {
+  async executeTask(task: Task, _onChunk?: (chunk: string) => void): Promise<Task> {
     task.status = TaskStatus.COMPLETED;
     task.result = {
       coordination: 'Task coordinated and delegated to team members',

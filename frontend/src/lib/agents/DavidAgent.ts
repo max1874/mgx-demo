@@ -108,7 +108,7 @@ Always focus on actionable insights.`;
   /**
    * Execute assigned task
    */
-  async executeTask(task: Task): Promise<Task> {
+  async executeTask(task: Task, onChunk?: (chunk: string) => void): Promise<Task> {
     this.log(`Executing task: ${task.title}`);
 
     try {
@@ -129,7 +129,9 @@ Provide:
 
 Be specific about the analysis approach and expected outcomes.`;
 
-      const analysis = await this.generateResponse(analysisPrompt);
+      const analysis = onChunk
+        ? await this.generateStreamingResponse(analysisPrompt, onChunk)
+        : await this.generateResponse(analysisPrompt);
 
       task.status = TaskStatus.COMPLETED;
       task.result = {

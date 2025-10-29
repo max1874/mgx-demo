@@ -100,7 +100,7 @@ Always consider trade-offs and justify your choices.`;
   /**
    * Execute assigned task
    */
-  async executeTask(task: Task): Promise<Task> {
+  async executeTask(task: Task, onChunk?: (chunk: string) => void): Promise<Task> {
     this.log(`Executing task: ${task.title}`);
 
     try {
@@ -142,7 +142,9 @@ Provide:
 
 Be specific and justify your technical choices. If PRD is provided above, ensure your design aligns with the requirements.`;
 
-      const architecture = await this.generateResponse(architecturePrompt);
+      const architecture = onChunk
+        ? await this.generateStreamingResponse(architecturePrompt, onChunk)
+        : await this.generateResponse(architecturePrompt);
 
       task.status = TaskStatus.COMPLETED;
       task.result = {

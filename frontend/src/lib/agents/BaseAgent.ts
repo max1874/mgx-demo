@@ -129,7 +129,7 @@ export abstract class BaseAgent {
   /**
    * Execute task - to be implemented by subclasses
    */
-  abstract executeTask(task: Task): Promise<Task>;
+  abstract executeTask(task: Task, onChunk?: (chunk: string) => void): Promise<Task>;
 
   /**
    * Check if agent can handle a specific task

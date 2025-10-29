@@ -99,7 +99,7 @@ Always be practical and deliver working solutions.`;
   /**
    * Execute assigned task
    */
-  async executeTask(task: Task): Promise<Task> {
+  async executeTask(task: Task, onChunk?: (chunk: string) => void): Promise<Task> {
     this.log(`Executing task: ${task.title}`);
 
     try {
@@ -139,7 +139,9 @@ Provide:
 
 Keep it practical and actionable. If PRD and Architecture are provided above, ensure your implementation follows them closely.`;
 
-      const implementation = await this.generateResponse(implementationPrompt);
+      const implementation = onChunk
+        ? await this.generateStreamingResponse(implementationPrompt, onChunk)
+        : await this.generateResponse(implementationPrompt);
 
       task.status = TaskStatus.COMPLETED;
       task.result = {

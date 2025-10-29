@@ -199,10 +199,17 @@ export function ChatArea() {
             refetchMessages();
           },
           onStreamChunk: (agentName, chunk) => {
-            setStreamingMessage(prev => ({
-              agentName,
-              content: (prev?.content || '') + chunk,
-            }));
+            setStreamingMessage(prev => {
+              // If agent changed, reset content and start fresh
+              if (prev && prev.agentName !== agentName) {
+                return { agentName, content: chunk };
+              }
+              // Otherwise, append to existing content
+              return {
+                agentName,
+                content: (prev?.content || '') + chunk,
+              };
+            });
           },
           onError: (error) => {
             console.error('Orchestrator error:', error);

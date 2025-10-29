@@ -274,9 +274,11 @@ export class AgentOrchestrator {
       if (response) {
         this.messageHistory.push(response);
 
-        // If task accepted, execute it
+        // If task accepted, execute it with streaming
         if (response.type === MessageType.TASK_ACCEPTED) {
-          const executedTask = await agent.executeTask(task);
+          const executedTask = await agent.executeTask(task, (chunk) => {
+            this.config.onStreamChunk?.(agent.getName(), chunk);
+          });
           
           // Update task
           this.activeTasks.set(executedTask.id, executedTask);
