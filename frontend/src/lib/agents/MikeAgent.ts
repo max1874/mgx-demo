@@ -349,17 +349,8 @@ Format as a clear, structured response.`;
         onChunk
       );
 
-      // Create tasks for team members
-      const tasks: Task[] = analysis.requiredAgents.map((agent, index) => ({
-        id: `task-${Date.now()}-${index}`,
-        title: `${this.getAgentName(agent)}'s contribution`,
-        description: `Work on: ${message.content}`,
-        assignee: agent,
-        status: TaskStatus.PENDING,
-        priority: 'high',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
+      // Create detailed, structured tasks for team members
+      const tasks = await this.createDetailedTasks(message.content, analysis.requiredAgents);
 
       return createAgentMessage(
         MessageType.AGENT_RESPONSE,
@@ -394,6 +385,151 @@ Format as a clear, structured response.`;
   async processMessage(message: AgentMessage): Promise<AgentMessage | null> {
     // Use streaming version with no-op callback
     return this.processMessageStreaming(message, () => {});
+  }
+
+  /**
+   * Create detailed, structured tasks for each agent (inspired by MetaGPT)
+   */
+  private async createDetailedTasks(userRequest: string, requiredAgents: AgentRole[]): Promise<Task[]> {
+    const taskPrompt = `Break down this project into specific, actionable tasks for each team member.
+
+Project: "${userRequest}"
+
+Team members: ${requiredAgents.map(a => this.getAgentName(a)).join(', ')}
+
+For each team member, define:
+1. Title: Clear, specific task title
+2. Description: Detailed description of what they need to deliver
+3. Expected Output: What concrete deliverable they should produce
+
+Team member roles:
+- Emma (Product Manager): Create PRD, user stories, requirements
+- Bob (System Architect): Design architecture, tech stack, data models
+- Alex (Full-stack Engineer): Implement features, write code
+- David (Data Analyst): Analyze data requirements, create insights
+
+Respond in JSON format:
+{
+  "tasks": [
+    {
+      "agent": "Emma",
+      "title": "...",
+      "description": "...",
+      "expectedOutput": "...",
+      "dependencies": []
+    },
+    ...
+  ]
+}
+
+Set dependencies:
+- Bob depends on Emma (needs PRD)
+- Alex depends on Bob (needs architecture)
+- David can work in parallel or depend on Emma`;
+
+    try {
+      const response = await this.generateResponse(taskPrompt);
+      const parsed = JSON.parse(response);
+
+      // Map to Task objects with proper dependencies
+      const agentMap: Record<string, AgentRole> = {
+        'Emma': AgentRole.EMMA,
+        'Bob': AgentRole.BOB,
+        'Alex': AgentRole.ALEX,
+        'David': AgentRole.DAVID
+      };
+
+      const tasks: Task[] = [];
+      const taskIdMap: Record<string, string> = {};
+
+      // First pass: Create all tasks
+      parsed.tasks.forEach((taskDef: any, index: number) => {
+        const taskId = `task-${Date.now()}-${index}`;
+        const agentRole = agentMap[taskDef.agent];
+
+        if (agentRole && requiredAgents.includes(agentRole)) {
+          taskIdMap[taskDef.agent] = taskId;
+
+          tasks.push({
+            id: taskId,
+            title: taskDef.title,
+            description: `${taskDef.description}\n\n**Expected Output:**\n${taskDef.expectedOutput}`,
+            assignee: agentRole,
+            status: TaskStatus.PENDING,
+            priority: 'high',
+            dependencies: [], // Will be filled in second pass
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+      });
+
+      // Second pass: Set up dependencies
+      parsed.tasks.forEach((taskDef: any, index: number) => {
+        if (taskDef.dependencies && Array.isArray(taskDef.dependencies)) {
+          const dependencyIds = taskDef.dependencies
+            .map((dep: string) => taskIdMap[dep])
+            .filter(Boolean);
+
+          if (tasks[index]) {
+            tasks[index].dependencies = dependencyIds;
+          }
+        }
+      });
+
+      console.log('Created detailed tasks:', tasks);
+      return tasks;
+
+    } catch (error) {
+      console.error('Failed to create detailed tasks, falling back to simple tasks:', error);
+
+      // Fallback: Create simple tasks
+      return requiredAgents.map((agent, index) => {
+        const taskId = `task-${Date.now()}-${index}`;
+        let dependencies: string[] = [];
+
+        // Simple dependency chain: Emma → Bob → Alex
+        if (agent === AgentRole.BOB && index > 0) {
+          dependencies = [`task-${Date.now()}-${index - 1}`];
+        } else if (agent === AgentRole.ALEX && index > 1) {
+          dependencies = [`task-${Date.now()}-${index - 1}`];
+        }
+
+        return {
+          id: taskId,
+          title: `${this.getAgentName(agent)}: ${userRequest}`,
+          description: this.getDefaultTaskDescription(agent, userRequest),
+          assignee: agent,
+          status: TaskStatus.PENDING,
+          priority: 'high',
+          dependencies,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+      });
+    }
+  }
+
+  /**
+   * Get default task description for an agent
+   */
+  private getDefaultTaskDescription(agent: AgentRole, userRequest: string): string {
+    switch (agent) {
+      case AgentRole.EMMA:
+        return `Analyze the project requirements and create a Product Requirements Document (PRD) for: ${userRequest}\n\n**Expected Output:**\n- User stories\n- Feature requirements\n- Success criteria`;
+
+      case AgentRole.BOB:
+        return `Design the system architecture for: ${userRequest}\n\n**Expected Output:**\n- Architecture diagram\n- Technology stack recommendations\n- Data model design\n- API specifications`;
+
+      case AgentRole.ALEX:
+        return `Implement the features for: ${userRequest}\n\n**Expected Output:**\n- Implementation plan\n- Code structure\n- Key components\n- Deployment guide`;
+
+      case AgentRole.DAVID:
+        return `Analyze data requirements and create insights for: ${userRequest}\n\n**Expected Output:**\n- Data analysis\n- Metrics recommendations\n- Dashboard design`;
+
+      default:
+        return `Work on: ${userRequest}`;
+    }
   }
 
   /**

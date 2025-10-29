@@ -104,11 +104,32 @@ Always consider trade-offs and justify your choices.`;
     this.log(`Executing task: ${task.title}`);
 
     try {
+      // Get context from dependencies (e.g., Emma's PRD)
+      let contextInfo = '';
+      if (this.context?.tasks) {
+        const dependencyTasks = this.context.tasks.filter(t =>
+          task.dependencies?.includes(t.id) && t.status === TaskStatus.COMPLETED
+        );
+
+        if (dependencyTasks.length > 0) {
+          contextInfo = '\n\n**Context from previous work:**\n';
+          dependencyTasks.forEach(depTask => {
+            contextInfo += `\n### ${depTask.title}\n`;
+            if (depTask.result?.prd) {
+              contextInfo += `${depTask.result.prd}\n`;
+            } else if (depTask.result?.analysis) {
+              contextInfo += `${depTask.result.analysis}\n`;
+            }
+          });
+        }
+      }
+
       // Generate architecture design
       const architecturePrompt = `As a system architect, design the architecture for:
 
 Task: ${task.title}
 Description: ${task.description}
+${contextInfo}
 
 Provide:
 1. System Architecture Overview
@@ -119,7 +140,7 @@ Provide:
 6. Security Measures
 7. Deployment Strategy
 
-Be specific and justify your technical choices.`;
+Be specific and justify your technical choices. If PRD is provided above, ensure your design aligns with the requirements.`;
 
       const architecture = await this.generateResponse(architecturePrompt);
 

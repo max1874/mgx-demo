@@ -103,11 +103,33 @@ Always be practical and deliver working solutions.`;
     this.log(`Executing task: ${task.title}`);
 
     try {
+      // Get context from dependencies (Emma's PRD + Bob's Architecture)
+      let contextInfo = '';
+      if (this.context?.tasks) {
+        const dependencyTasks = this.context.tasks.filter(t =>
+          task.dependencies?.includes(t.id) && t.status === TaskStatus.COMPLETED
+        );
+
+        if (dependencyTasks.length > 0) {
+          contextInfo = '\n\n**Context from team:**\n';
+          dependencyTasks.forEach(depTask => {
+            contextInfo += `\n### ${depTask.title}\n`;
+            if (depTask.result?.prd) {
+              contextInfo += `**Requirements:**\n${depTask.result.prd}\n`;
+            }
+            if (depTask.result?.architecture) {
+              contextInfo += `**Architecture:**\n${depTask.result.architecture}\n`;
+            }
+          });
+        }
+      }
+
       // Generate implementation plan
       const implementationPrompt = `As a full-stack engineer, implement this task:
 
 Task: ${task.title}
 Description: ${task.description}
+${contextInfo}
 
 Provide:
 1. Implementation approach
@@ -115,7 +137,7 @@ Provide:
 3. Testing strategy
 4. Deployment considerations
 
-Keep it practical and actionable.`;
+Keep it practical and actionable. If PRD and Architecture are provided above, ensure your implementation follows them closely.`;
 
       const implementation = await this.generateResponse(implementationPrompt);
 
@@ -123,6 +145,7 @@ Keep it practical and actionable.`;
       task.result = {
         implementation,
         code: implementation,
+        plan: implementation,
         completedAt: new Date().toISOString(),
       };
       task.updatedAt = new Date();
