@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { MessageBubble } from './MessageBubble';
 import { AgentStatusIndicator } from './AgentStatusIndicator';
-import { Send, Loader2, Plus, ChevronDown } from 'lucide-react';
+import { Send, Loader2, Plus, ChevronDown, FileText, Search, BookOpen, Link } from 'lucide-react';
 import type { Database } from '@/types/database';
 
 type Message = Database['public']['Tables']['messages']['Row'];
@@ -15,11 +15,43 @@ type AgentName = 'Mike' | 'Emma' | 'Bob' | 'Alex' | 'David';
 type AgentState = 'idle' | 'thinking' | 'executing' | 'completed' | 'failed';
 
 const agents = [
-  { name: 'Mike', avatar: '/avatars/mike.png', borderColor: 'border-orange-400' },
-  { name: 'Alex', avatar: '/avatars/alex.png', borderColor: 'border-purple-400' },
-  { name: 'Emma', avatar: '/avatars/emma.png', borderColor: 'border-green-400' },
-  { name: 'David', avatar: '/avatars/david.png', borderColor: 'border-orange-400' },
-  { name: 'Bob', avatar: '/avatars/bob.png', borderColor: 'border-cyan-400' },
+  { 
+    name: 'Mike', 
+    avatar: '/avatars/mike.png', 
+    title: 'Team Leader',
+    description: 'Coordinates team members and manages workflow'
+  },
+  { 
+    name: 'Alex', 
+    avatar: '/avatars/alex.png', 
+    title: 'Full-stack Engineer',
+    description: 'Implements and deploys applications'
+  },
+  { 
+    name: 'Emma', 
+    avatar: '/avatars/emma.png', 
+    title: 'Product Manager',
+    description: 'Analyzes requirements and creates PRDs'
+  },
+  { 
+    name: 'David', 
+    avatar: '/avatars/david.png', 
+    title: 'Data Analyst',
+    description: 'Processes data and performs analysis'
+  },
+  { 
+    name: 'Bob', 
+    avatar: '/avatars/bob.png', 
+    title: 'System Architect',
+    description: 'Designs technical architecture'
+  },
+];
+
+const quickActions = [
+  { icon: FileText, label: '幻灯片', color: 'text-pink-600' },
+  { icon: Search, label: '深度研究', color: 'text-blue-600' },
+  { icon: BookOpen, label: '博客', color: 'text-green-600' },
+  { icon: Link, label: '链接中心', color: 'text-purple-600' },
 ];
 
 export function ChatArea() {
@@ -178,14 +210,15 @@ export function ChatArea() {
     return (
       <div className="flex-1 flex flex-col bg-gradient-to-b from-white to-purple-50">
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-          {/* Agent Avatars */}
-          <div className="flex items-center gap-4 mb-8">
-            {agents.map((agent) => (
+          {/* Agent Avatars with overlap effect */}
+          <div className="flex items-center mb-8">
+            {agents.map((agent, index) => (
               <div
                 key={agent.name}
-                className="relative group cursor-pointer"
+                className="relative group cursor-pointer -ml-2.5 first:ml-0 transition-transform hover:scale-110 hover:z-50"
+                style={{ zIndex: agents.length - index }}
               >
-                <div className={`w-16 h-16 rounded-full overflow-hidden border-4 ${agent.borderColor} shadow-lg transition-transform hover:scale-110`}>
+                <div className="w-14 h-14 rounded-full overflow-hidden bg-white shadow-lg">
                   <img
                     src={agent.avatar}
                     alt={agent.name}
@@ -195,24 +228,29 @@ export function ChatArea() {
                     }}
                   />
                 </div>
-                <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span className="text-xs font-medium text-gray-600 whitespace-nowrap bg-white px-2 py-1 rounded shadow-sm">
-                    {agent.name}
-                  </span>
+                {/* Hover tooltip */}
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                  <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+                    <div className="font-semibold">{agent.name}</div>
+                    <div className="text-gray-300">{agent.title}</div>
+                    <div className="text-gray-400 text-[10px] mt-1">{agent.description}</div>
+                    {/* Arrow */}
+                    <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                  </div>
                 </div>
               </div>
             ))}
             <Button
               variant="ghost"
               size="icon"
-              className="w-16 h-16 rounded-full border-4 border-dashed border-gray-300 hover:border-gray-400"
+              className="w-14 h-14 -ml-2.5 rounded-full border-2 border-dashed border-gray-300 hover:border-gray-400 bg-white"
             >
-              <Plus className="h-6 w-6 text-gray-400" />
+              <Plus className="h-5 w-5 text-gray-400" />
             </Button>
           </div>
 
           {/* Title */}
-          <h1 className="text-3xl font-bold text-gray-800 mb-12 mt-12">
+          <h1 className="text-3xl font-bold text-gray-800 mb-12">
             用智能体构建您的想法
           </h1>
 
@@ -254,6 +292,20 @@ export function ChatArea() {
                 </Button>
               </div>
             </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="flex items-center gap-4 mt-8">
+            {quickActions.map((action) => (
+              <Button
+                key={action.label}
+                variant="ghost"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium hover:bg-white/80 rounded-lg transition-colors"
+              >
+                <action.icon className={`h-4 w-4 ${action.color}`} />
+                <span className="text-gray-700">{action.label}</span>
+              </Button>
+            ))}
           </div>
         </div>
       </div>
