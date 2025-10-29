@@ -13,7 +13,7 @@ export class OpenRouterProvider extends LLMProvider {
   constructor(apiKey: string, model?: string) {
     super({
       apiKey,
-      model: model || 'anthropic/claude-3.5-sonnet',
+      model: model || 'anthropic/claude-4.5-sonnet',
       temperature: 0.7,
       maxTokens: 4096,
     });

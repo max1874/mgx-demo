@@ -32,7 +32,7 @@ export const MODEL_CONFIGS: Record<ModelType, ModelConfig> = {
     category: 'premium',
     provider: 'anthropic',
     apiKeyEnvVar: 'VITE_OPENROUTER_API_KEY',
-    defaultModel: 'anthropic/claude-sonnet-4-20250514',
+    defaultModel: 'anthropic/claude-sonnet-4.5',
   },
   [ModelType.GPT_5]: {
     id: ModelType.GPT_5,

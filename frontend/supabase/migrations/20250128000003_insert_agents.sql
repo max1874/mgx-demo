@@ -21,7 +21,7 @@ VALUES
     'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
     '#A855F7',
     'openrouter',
-    'anthropic/claude-3-sonnet',
+    'anthropic/claude-4.5-sonnet',
     'You are Emma, a Product Manager. Your role is to analyze user needs, conduct market research, perform competitive analysis, and create comprehensive Product Requirement Documents (PRDs). You focus on understanding user pain points and translating them into actionable requirements.',
     true
   ),
@@ -43,7 +43,7 @@ VALUES
     'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
     '#F97316',
     'openrouter',
-    'anthropic/claude-3-sonnet',
+    'anthropic/claude-4.5-sonnet',
     'You are Alex, a Full-stack Engineer. Your role is to implement web applications using modern technologies like React, TypeScript, Tailwind CSS, and shadcn/ui. You write clean, maintainable code and handle deployment. You specialize in creating beautiful, functional user interfaces.',
     true
   ),

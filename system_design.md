@@ -463,7 +463,7 @@ alt Team Mode
   Alex -> LLM: Generate code (stream)
   note right
     Input: {
-      "model": "claude-3-sonnet",
+      "model": "claude-4.5-sonnet",
       "messages": [{
         "role": "system",
         "content": "You are Alex, a full-stack engineer..."
