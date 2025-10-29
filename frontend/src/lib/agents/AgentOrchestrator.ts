@@ -30,6 +30,7 @@ import { generateAndUpdateTitle } from '../services/titleGenerator';
 
 interface OrchestratorConfig {
   conversationId: string;
+  mode?: 'team' | 'engineer';
   modelType?: ModelType;
   onAgentMessage?: (agentName: string, content: string) => void;
   onStreamChunk?: (agentName: string, chunk: string) => void;
@@ -39,6 +40,7 @@ interface OrchestratorConfig {
 
 export class AgentOrchestrator {
   private conversationId: string;
+  private mode: 'team' | 'engineer';
   private agents: Map<AgentRole, BaseAgent>;
   private llmProvider: LLMProvider;
   private messageHistory: AgentMessage[] = [];
@@ -49,9 +51,10 @@ export class AgentOrchestrator {
   constructor(config: OrchestratorConfig) {
     this.config = config;
     this.conversationId = config.conversationId;
+    this.mode = config.mode || 'team';
     this.modelType = config.modelType || ModelType.CLAUDE_SONNET;
 
-    console.log('🚀 AgentOrchestrator: Initializing with model type:', this.modelType);
+    console.log('🚀 AgentOrchestrator: Initializing with mode:', this.mode, 'model type:', this.modelType);
 
     // Initialize LLM provider based on selected model
     this.llmProvider = this.createLLMProvider();
@@ -106,8 +109,8 @@ export class AgentOrchestrator {
    */
   async processUserRequest(userMessage: string): Promise<void> {
     try {
-      console.log('💬 AgentOrchestrator: Processing user request with model:', this.llmProvider.getModel());
-      
+      console.log(`💬 AgentOrchestrator: Processing user request in ${this.mode} mode with model:`, this.llmProvider.getModel());
+
       // Save user message to database
       await createMessage({
         conversation_id: this.conversationId,
@@ -118,66 +121,11 @@ export class AgentOrchestrator {
       // Update conversation timestamp
       await touchConversation(this.conversationId);
 
-      // Create agent message for Mike
-      const message = createAgentMessage(
-        MessageType.USER_REQUEST,
-        userMessage,
-        AgentRole.USER,
-        AgentRole.MIKE
-      );
-
-      this.messageHistory.push(message);
-
-      // Get Mike agent
-      const mike = this.agents.get(AgentRole.MIKE);
-      if (!mike) {
-        throw new Error('Mike agent not initialized');
-      }
-
-      // Set context for Mike
-      mike.setContext({
-        conversationId: this.conversationId,
-        projectId: '', // TODO: Get from context
-        userId: '', // TODO: Get from context
-        mode: 'team',
-        messages: this.messageHistory,
-        tasks: Array.from(this.activeTasks.values()),
-      });
-
-      // Process with Mike using streaming
-      let fullResponse = '';
-      
-      const response = await mike.processMessageStreaming(message, (chunk) => {
-        fullResponse += chunk;
-        // Stream each chunk to UI
-        this.config.onStreamChunk?.('Mike', chunk);
-      });
-
-      if (response) {
-        this.messageHistory.push(response);
-
-        // Save Mike's complete response to database
-        await createMessage({
-          conversation_id: this.conversationId,
-          role: 'assistant',
-          agent_name: 'Mike',
-          content: fullResponse,
-        });
-
-        // Notify UI that streaming is complete
-        this.config.onAgentMessage?.('Mike', fullResponse);
-
-        // Auto-generate conversation title after Mike's response (if needed)
-        // This runs in the background and doesn't block the response
-        generateAndUpdateTitle(this.conversationId, this.llmProvider).catch((error) => {
-          console.error('Failed to generate conversation title:', error);
-        });
-
-        // Check if Mike created tasks
-        if (response.metadata?.tasks) {
-          const tasks = response.metadata.tasks as Task[];
-          await this.executeTasks(tasks);
-        }
+      // Route to appropriate mode handler
+      if (this.mode === 'engineer') {
+        await this.processEngineerMode(userMessage);
+      } else {
+        await this.processTeamMode(userMessage);
       }
     } catch (error) {
       console.error('❌ AgentOrchestrator: Error processing user request:', error);
@@ -189,6 +137,134 @@ export class AgentOrchestrator {
         role: 'system',
         content: `Error: ${(error as Error).message}`,
       });
+    }
+  }
+
+  /**
+   * Engineer Mode: Route directly to Alex
+   */
+  private async processEngineerMode(userMessage: string): Promise<void> {
+    console.log('🔧 Engineer Mode: Routing directly to Alex');
+
+    // Create agent message for Alex
+    const message = createAgentMessage(
+      MessageType.USER_REQUEST,
+      userMessage,
+      AgentRole.USER,
+      AgentRole.ALEX
+    );
+
+    this.messageHistory.push(message);
+
+    // Get Alex agent
+    const alex = this.agents.get(AgentRole.ALEX);
+    if (!alex) {
+      throw new Error('Alex agent not initialized');
+    }
+
+    // Set context for Alex
+    alex.setContext({
+      conversationId: this.conversationId,
+      projectId: '',
+      userId: '',
+      mode: 'engineer',
+      messages: this.messageHistory,
+      tasks: [],
+    });
+
+    // Process with Alex using streaming
+    let fullResponse = '';
+
+    const response = await alex.processMessageStreaming(message, (chunk) => {
+      fullResponse += chunk;
+      this.config.onStreamChunk?.('Alex', chunk);
+    });
+
+    if (response) {
+      this.messageHistory.push(response);
+
+      // Save Alex's complete response to database
+      await createMessage({
+        conversation_id: this.conversationId,
+        role: 'assistant',
+        agent_name: 'Alex',
+        content: fullResponse,
+      });
+
+      // Notify UI that streaming is complete
+      this.config.onAgentMessage?.('Alex', fullResponse);
+
+      // Auto-generate conversation title
+      generateAndUpdateTitle(this.conversationId, this.llmProvider).catch((error) => {
+        console.error('Failed to generate conversation title:', error);
+      });
+    }
+  }
+
+  /**
+   * Team Mode: Route through Mike for multi-agent collaboration
+   */
+  private async processTeamMode(userMessage: string): Promise<void> {
+    console.log('👥 Team Mode: Coordinating through Mike');
+
+    // Create agent message for Mike
+    const message = createAgentMessage(
+      MessageType.USER_REQUEST,
+      userMessage,
+      AgentRole.USER,
+      AgentRole.MIKE
+    );
+
+    this.messageHistory.push(message);
+
+    // Get Mike agent
+    const mike = this.agents.get(AgentRole.MIKE);
+    if (!mike) {
+      throw new Error('Mike agent not initialized');
+    }
+
+    // Set context for Mike
+    mike.setContext({
+      conversationId: this.conversationId,
+      projectId: '',
+      userId: '',
+      mode: 'team',
+      messages: this.messageHistory,
+      tasks: Array.from(this.activeTasks.values()),
+    });
+
+    // Process with Mike using streaming
+    let fullResponse = '';
+
+    const response = await mike.processMessageStreaming(message, (chunk) => {
+      fullResponse += chunk;
+      this.config.onStreamChunk?.('Mike', chunk);
+    });
+
+    if (response) {
+      this.messageHistory.push(response);
+
+      // Save Mike's complete response to database
+      await createMessage({
+        conversation_id: this.conversationId,
+        role: 'assistant',
+        agent_name: 'Mike',
+        content: fullResponse,
+      });
+
+      // Notify UI that streaming is complete
+      this.config.onAgentMessage?.('Mike', fullResponse);
+
+      // Auto-generate conversation title
+      generateAndUpdateTitle(this.conversationId, this.llmProvider).catch((error) => {
+        console.error('Failed to generate conversation title:', error);
+      });
+
+      // Check if Mike created tasks
+      if (response.metadata?.tasks) {
+        const tasks = response.metadata.tasks as Task[];
+        await this.executeTasks(tasks);
+      }
     }
   }
 

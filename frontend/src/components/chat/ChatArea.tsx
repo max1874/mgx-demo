@@ -9,6 +9,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageList } from './MessageList';
 import { ModelSelector } from './ModelSelector';
+import { ModeSwitcher } from './ModeSwitcher';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { 
@@ -83,12 +84,13 @@ const agents = [
 
 export function ChatArea() {
   const { user } = useAuth();
-  const { 
-    currentConversationId, 
-    setCurrentConversation, 
+  const {
+    currentConversationId,
+    setCurrentConversation,
     refreshConversations,
     workspaceProjectId,
     ensureWorkspaceProject,
+    mode,
   } = useLayout();
   const { selectedModel, modelConfig, isChanging } = useModel();
   const [input, setInput] = useState('');
@@ -208,6 +210,7 @@ export function ChatArea() {
       try {
         orchestratorRef.current = new AgentOrchestrator({
           conversationId: currentConversationId,
+          mode: mode,
           modelType: selectedModel,
           onAgentMessage: (agentName, content) => {
             console.log(`Agent ${agentName} message:`, content);
@@ -260,10 +263,10 @@ export function ChatArea() {
         orchestratorRef.current = null;
       }
     };
-    // Only reinitialize when conversation or model actually changes
+    // Only reinitialize when conversation, model, or mode actually changes
     // Don't include functions or objects that may change reference
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentConversationId, selectedModel]);
+  }, [currentConversationId, selectedModel, mode]);
 
   /**
    * Initialize or create new conversation
@@ -469,6 +472,7 @@ export function ChatArea() {
                   </Button>
                 </div>
                 <div className="flex items-center gap-3">
+                  <ModeSwitcher />
                   <ModelSelector />
                   <Button
                     onClick={handleSend}
@@ -510,8 +514,8 @@ export function ChatArea() {
                 title={`Ask ${agent.name}`}
                 onClick={() => setInput(`@${agent.name} `)}
               >
-                <img 
-                  src={agent.avatar} 
+                <img
+                  src={agent.avatar}
                   alt={agent.name}
                   className="w-8 h-8 rounded-full hover:opacity-80 transition-opacity"
                 />
@@ -520,81 +524,60 @@ export function ChatArea() {
           </div>
 
           {/* Input Box */}
-          <div className="flex gap-2">
-            <div className="flex-1 relative">
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="p-4">
               <Textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message... (Shift+Enter for new line)"
-                className="min-h-[60px] max-h-[200px] resize-none pr-24"
+                className="min-h-[60px] border-0 resize-none focus-visible:ring-0 text-base"
                 disabled={isChanging}
               />
-              
-              {/* Attachment buttons */}
-              <div className="absolute right-2 bottom-2 flex gap-1">
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  title="Attach file"
-                  disabled={isChanging}
-                >
+            </div>
+
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="h-9 w-9">
                   <Paperclip className="h-4 w-4" />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  title="Attach image"
-                  disabled={isChanging}
-                >
+                <Button variant="ghost" size="icon" className="h-9 w-9">
                   <ImageIcon className="h-4 w-4" />
                 </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  title="Voice input"
-                  disabled={isChanging}
-                >
+                <Button variant="ghost" size="icon" className="h-9 w-9">
                   <Mic className="h-4 w-4" />
                 </Button>
               </div>
+              <div className="flex items-center gap-3">
+                <ModeSwitcher />
+                <ModelSelector />
+                <Button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isChanging}
+                  size="icon"
+                  className="h-9 w-9 rounded-lg"
+                >
+                  {isSending || isChanging ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
-
-            {/* Send Button */}
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isChanging}
-              size="lg"
-              className="px-6"
-            >
-              {isSending || isChanging ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <>
-                  <Send className="h-5 w-5 mr-2" />
-                  Send
-                </>
-              )}
-            </Button>
           </div>
 
           {/* Helper text */}
-          <div className="flex items-center justify-between mt-2">
-            <p className="text-xs text-muted-foreground">
+          <div className="mt-2">
+            <p className="text-xs text-muted-foreground text-center">
               {isSending
                 ? 'Processing your request...'
                 : isChanging
                 ? 'Switching model...'
                 : 'Press Enter to send, Shift+Enter for new line'}
             </p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Using:</span>
-              <ModelSelector />
-            </div>
           </div>
         </div>
       </div>

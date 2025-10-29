@@ -76,6 +76,19 @@ Always be practical and deliver working solutions.`;
    * Process incoming message
    */
   async processMessage(message: AgentMessage): Promise<AgentMessage | null> {
+    // Handle direct user requests (Engineer Mode)
+    if (message.type === MessageType.USER_REQUEST) {
+      this.log('Received user request in Engineer Mode');
+
+      return createAgentMessage(
+        MessageType.AGENT_RESPONSE,
+        `I'll help you implement that request: ${message.content}`,
+        this.config.role,
+        message.from
+      );
+    }
+
+    // Handle task assignments (Team Mode)
     if (message.type === MessageType.TASK_ASSIGNMENT) {
       this.log('Received task assignment');
 
@@ -100,6 +113,43 @@ Always be practical and deliver working solutions.`;
     }
 
     return null;
+  }
+
+  /**
+   * Process message with streaming (override for Engineer Mode)
+   */
+  async processMessageStreaming(
+    message: AgentMessage,
+    onChunk: (chunk: string) => void
+  ): Promise<AgentMessage | null> {
+    // Handle direct user requests in Engineer Mode with streaming
+    if (message.type === MessageType.USER_REQUEST) {
+      this.log('Processing user request in Engineer Mode with streaming');
+
+      const prompt = `As a skilled full-stack engineer, help the user with their request:
+
+User Request: ${message.content}
+
+Provide a comprehensive solution including:
+1. Analysis of the request
+2. Implementation approach
+3. Key code snippets or examples
+4. Best practices and recommendations
+
+Be practical, clear, and provide actionable guidance.`;
+
+      const response = await this.generateStreamingResponse(prompt, onChunk);
+
+      return createAgentMessage(
+        MessageType.AGENT_RESPONSE,
+        response,
+        this.config.role,
+        message.from
+      );
+    }
+
+    // Fall back to default behavior
+    return this.processMessage(message);
   }
 
   /**

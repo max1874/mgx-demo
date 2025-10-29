@@ -6,6 +6,8 @@ import type { Database } from '@/types/database';
 
 type Conversation = Database['public']['Tables']['conversations']['Row'];
 
+export type AgentMode = 'team' | 'engineer';
+
 interface LayoutContextType {
   sidebarOpen: boolean;
   editorOpen: boolean;
@@ -14,10 +16,12 @@ interface LayoutContextType {
   conversations: Conversation[];
   workspaceProjectId: string | null;
   workspaceLoading: boolean;
+  mode: AgentMode;
   toggleSidebar: () => void;
   toggleEditor: () => void;
   setCurrentConversation: (conversationId: string | null) => void;
   setCurrentFile: (fileId: string | null) => void;
+  setMode: (mode: AgentMode) => void;
   refreshConversations: (projectId?: string) => Promise<void>;
   ensureWorkspaceProject: () => Promise<string | null>;
 }
@@ -33,11 +37,16 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [workspaceProjectId, setWorkspaceProjectId] = useState<string | null>(null);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const [mode, setModeState] = useState<AgentMode>('team');
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
   const toggleEditor = () => setEditorOpen(prev => !prev);
   const setCurrentConversation = (conversationId: string | null) => setCurrentConversationId(conversationId);
   const setCurrentFile = (fileId: string | null) => setCurrentFileId(fileId);
+  const setMode = (newMode: AgentMode) => {
+    console.log('🔄 Switching mode to:', newMode);
+    setModeState(newMode);
+  };
 
   const ensureWorkspaceProject = useCallback(async (): Promise<string | null> => {
     if (!user) return null;
@@ -177,10 +186,12 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
     conversations,
     workspaceProjectId,
     workspaceLoading,
+    mode,
     toggleSidebar,
     toggleEditor,
     setCurrentConversation,
     setCurrentFile,
+    setMode,
     refreshConversations,
     ensureWorkspaceProject,
   };
