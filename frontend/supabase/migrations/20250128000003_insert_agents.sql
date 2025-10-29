@@ -1,13 +1,12 @@
 -- Insert AI Agents
 -- This migration adds the 6 AI agents to the agents table
 
-INSERT INTO agents (id, name, role, description, avatar_url, color, model_provider, model_name, system_prompt, is_active)
+INSERT INTO agents (id, name, description, avatar_url, color, model_provider, model_name, system_prompt, is_active)
 VALUES
   (
     'mike-001',
     'Mike',
-    'Team Leader',
-    'Manages the team and coordinates tasks between agents',
+    'Team Leader - Manages the team and coordinates tasks between agents',
     'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike',
     '#3B82F6',
     'openrouter',
@@ -18,8 +17,7 @@ VALUES
   (
     'emma-001',
     'Emma',
-    'Product Manager',
-    'Analyzes user needs and creates product requirements',
+    'Product Manager - Analyzes user needs and creates product requirements',
     'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
     '#A855F7',
     'openrouter',
@@ -30,8 +28,7 @@ VALUES
   (
     'bob-001',
     'Bob',
-    'System Architect',
-    'Designs software architecture and system design',
+    'System Architect - Designs software architecture and system design',
     'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
     '#10B981',
     'openrouter',
@@ -42,8 +39,7 @@ VALUES
   (
     'alex-001',
     'Alex',
-    'Full-stack Engineer',
-    'Implements web applications and handles deployment',
+    'Full-stack Engineer - Implements web applications and handles deployment',
     'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
     '#F97316',
     'openrouter',
@@ -54,8 +50,7 @@ VALUES
   (
     'david-001',
     'David',
-    'Data Analyst',
-    'Handles data analysis, machine learning, and research tasks',
+    'Data Analyst - Handles data analysis, machine learning, and research tasks',
     'https://api.dicebear.com/7.x/avataaars/svg?seed=David',
     '#06B6D4',
     'openrouter',
@@ -66,8 +61,7 @@ VALUES
   (
     'iris-001',
     'Iris',
-    'Deep Researcher',
-    'Conducts in-depth research and creates comprehensive reports',
+    'Deep Researcher - Conducts in-depth research and creates comprehensive reports',
     'https://api.dicebear.com/7.x/avataaars/svg?seed=Iris',
     '#EC4899',
     'openrouter',
