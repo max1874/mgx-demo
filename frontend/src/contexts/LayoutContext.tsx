@@ -1,23 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { supabase } from '@/lib/supabase';
+import { getConversationsByUser } from '@/lib/api/conversations';
 import type { Database } from '@/types/database';
 
-type Project = Database['public']['Tables']['projects']['Row'];
+type Conversation = Database['public']['Tables']['conversations']['Row'];
 
 interface LayoutContextType {
   sidebarOpen: boolean;
   editorOpen: boolean;
-  currentProject: Project | null;
   currentConversationId: string | null;
   currentFileId: string | null;
-  projects: Project[];
+  conversations: Conversation[];
   toggleSidebar: () => void;
   toggleEditor: () => void;
-  setCurrentProject: (project: Project | null) => void;
   setCurrentConversation: (conversationId: string | null) => void;
   setCurrentFile: (fileId: string | null) => void;
-  refreshProjects: () => Promise<void>;
+  refreshConversations: () => Promise<void>;
 }
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
@@ -26,68 +24,59 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [editorOpen, setEditorOpen] = useState(true);
-  const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [currentFileId, setCurrentFileId] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
   const toggleEditor = () => setEditorOpen(prev => !prev);
-  const setCurrentProject = (project: Project | null) => setCurrentProjectState(project);
   const setCurrentConversation = (conversationId: string | null) => setCurrentConversationId(conversationId);
   const setCurrentFile = (fileId: string | null) => setCurrentFileId(fileId);
 
-  // Fetch user's projects with error handling
-  const refreshProjects = useCallback(async () => {
+  // Fetch user's conversations with error handling
+  const refreshConversations = useCallback(async () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+      const { data, error } = await getConversationsByUser(user.id);
 
       if (error) {
-        console.error('Error fetching projects:', error);
-        // Don't throw, just log the error
+        console.error('Error fetching conversations:', error);
         return;
       }
       
-      setProjects(data || []);
+      setConversations(data || []);
 
-      // If no current project and projects exist, select the first one
-      if (!currentProject && data && data.length > 0) {
-        setCurrentProjectState(data[0]);
+      // If no current conversation and conversations exist, select the first one
+      if (!currentConversationId && data && data.length > 0) {
+        setCurrentConversationId(data[0].id);
       }
     } catch (error) {
-      console.error('Error in refreshProjects:', error);
+      console.error('Error in refreshConversations:', error);
     }
-  }, [user, currentProject]);
+  }, [user, currentConversationId]);
 
-  // Load projects when user changes
+  // Load conversations when user changes
   useEffect(() => {
     if (user) {
-      refreshProjects();
+      refreshConversations();
     } else {
-      setProjects([]);
-      setCurrentProjectState(null);
+      setConversations([]);
+      setCurrentConversationId(null);
     }
-  }, [user, refreshProjects]);
+  }, [user, refreshConversations]);
 
   const value = {
     sidebarOpen,
     editorOpen,
-    currentProject,
     currentConversationId,
     currentFileId,
-    projects,
+    conversations,
     toggleSidebar,
     toggleEditor,
-    setCurrentProject,
     setCurrentConversation,
     setCurrentFile,
-    refreshProjects,
+    refreshConversations,
   };
 
   return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>;

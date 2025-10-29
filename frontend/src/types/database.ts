@@ -120,7 +120,6 @@ export interface Database {
       conversations: {
         Row: {
           id: string
-          project_id: string
           user_id: string
           title: string
           mode: string | null
@@ -129,7 +128,6 @@ export interface Database {
         }
         Insert: {
           id?: string
-          project_id: string
           user_id: string
           title: string
           mode?: string | null
@@ -138,7 +136,6 @@ export interface Database {
         }
         Update: {
           id?: string
-          project_id?: string
           user_id?: string
           title?: string
           mode?: string | null
@@ -201,7 +198,7 @@ export interface Database {
       files: {
         Row: {
           id: string
-          project_id: string
+          conversation_id: string
           path: string
           content: string
           language: string | null
@@ -210,7 +207,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          project_id: string
+          conversation_id: string
           path: string
           content: string
           language?: string | null
@@ -219,7 +216,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          project_id?: string
+          conversation_id?: string
           path?: string
           content?: string
           language?: string | null
@@ -270,7 +267,7 @@ export interface Database {
       deployments: {
         Row: {
           id: string
-          project_id: string
+          conversation_id: string
           version: string
           url: string | null
           status: string
@@ -279,7 +276,7 @@ export interface Database {
         }
         Insert: {
           id?: string
-          project_id: string
+          conversation_id: string
           version: string
           url?: string | null
           status: string
@@ -288,7 +285,7 @@ export interface Database {
         }
         Update: {
           id?: string
-          project_id?: string
+          conversation_id?: string
           version?: string
           url?: string | null
           status?: string
@@ -300,21 +297,21 @@ export interface Database {
       versions: {
         Row: {
           id: string
-          project_id: string
+          conversation_id: string
           version_number: number
           description: string | null
           created_at: string | null
         }
         Insert: {
           id?: string
-          project_id: string
+          conversation_id: string
           version_number: number
           description?: string | null
           created_at?: string | null
         }
         Update: {
           id?: string
-          project_id?: string
+          conversation_id?: string
           version_number?: number
           description?: string | null
           created_at?: string | null

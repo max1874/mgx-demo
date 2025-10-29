@@ -2,6 +2,7 @@
  * Conversations API
  * 
  * This module provides functions for managing conversations in Supabase.
+ * Updated to work without project_id - each conversation is now independent.
  */
 
 import { supabase } from '@/lib/supabase';
@@ -56,16 +57,16 @@ export async function getConversation(
 }
 
 /**
- * Get all conversations for a project
+ * Get all conversations for a user
  */
-export async function getConversationsByProject(
-  projectId: string
+export async function getConversationsByUser(
+  userId: string
 ): Promise<{ data: Conversation[] | null; error: Error | null }> {
   try {
     const { data: conversations, error } = await supabase
       .from('conversations')
       .select('*')
-      .eq('project_id', projectId)
+      .eq('user_id', userId)
       .order('updated_at', { ascending: false });
 
     if (error) throw error;

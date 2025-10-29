@@ -3,6 +3,7 @@
  * 
  * Main chat interface with message list and input.
  * Integrates with Agent Orchestrator for AI-powered conversations.
+ * Updated with optimistic UI updates for better UX.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -24,6 +25,19 @@ import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
 import { AgentOrchestrator } from '@/lib/agents/AgentOrchestrator';
 import { createConversation } from '@/lib/api/conversations';
 import { toast } from 'sonner';
+import type { Database } from '@/types/database';
+
+type Message = Database['public']['Tables']['messages']['Row'];
+
+// Pending message type for optimistic updates
+interface PendingMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  agent_name?: string;
+  created_at: string;
+  isPending: true;
+}
 
 // Agent avatars for quick actions - using UI Avatars service
 const agents = [
@@ -61,9 +75,10 @@ const agents = [
 
 export function ChatArea() {
   const { user } = useAuth();
-  const { currentProject, currentConversationId, setCurrentConversation } = useLayout();
+  const { currentConversationId, setCurrentConversation, refreshConversations } = useLayout();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
   const [streamingMessage, setStreamingMessage] = useState<{
     agentName: string;
     content: string;
@@ -79,12 +94,24 @@ export function ChatArea() {
     enabled: !!currentConversationId,
   });
 
-  // Initialize conversation when project is selected
-  useEffect(() => {
-    if (currentProject && user && !currentConversationId) {
-      initializeConversation();
-    }
-  }, [currentProject, user, currentConversationId]);
+  // Combine real messages with pending messages
+  const allMessages = [
+    ...messages,
+    ...pendingMessages.map(msg => ({
+      ...msg,
+      conversation_id: currentConversationId || '',
+      topic: '',
+      extension: '',
+      payload: null,
+      event: null,
+      metadata: null,
+      private: false,
+      updated_at: msg.created_at,
+      inserted_at: msg.created_at,
+    } as Message))
+  ].sort((a, b) => 
+    new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+  );
 
   // Initialize orchestrator when conversation is ready
   useEffect(() => {
@@ -94,6 +121,8 @@ export function ChatArea() {
           conversationId: currentConversationId,
           onAgentMessage: (agentName, content) => {
             console.log(`Agent ${agentName} message:`, content);
+            // Clear streaming when complete message arrives
+            setStreamingMessage(null);
           },
           onStreamChunk: (agentName, chunk) => {
             setStreamingMessage(prev => ({
@@ -106,6 +135,7 @@ export function ChatArea() {
             const message = error.message || 'Agent orchestrator encountered an error';
             setOrchestratorError(message);
             toast.error(`Error: ${message}`);
+            setIsSending(false);
           },
         });
         setOrchestratorError(null);
@@ -129,22 +159,23 @@ export function ChatArea() {
   }, [currentConversationId]);
 
   /**
-   * Initialize or get existing conversation
+   * Initialize or create new conversation
    */
   const initializeConversation = async () => {
-    if (!currentProject || !user) return;
+    if (!user) return;
 
     try {
       // Create a new conversation
       const { data, error } = await createConversation({
-        project_id: currentProject.id,
         user_id: user.id,
         title: 'New Conversation',
+        mode: 'team',
       });
 
       if (error) throw error;
       if (data) {
         setCurrentConversation(data.id);
+        await refreshConversations();
       }
     } catch (err) {
       console.error('Error initializing conversation:', err);
@@ -153,24 +184,54 @@ export function ChatArea() {
   };
 
   /**
-   * Handle sending message
+   * Handle sending message with optimistic update
    */
   const handleSend = async () => {
-    if (!input.trim() || isSending || !orchestratorRef.current) return;
+    if (!input.trim() || isSending) return;
+
+    // If no conversation, create one first
+    if (!currentConversationId) {
+      await initializeConversation();
+      // Wait a bit for conversation to be created
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (!orchestratorRef.current) {
+      toast.error('Chat system not ready. Please wait...');
+      return;
+    }
 
     const messageContent = input.trim();
     setInput('');
     setIsSending(true);
     setStreamingMessage(null);
 
+    // Add optimistic user message
+    const pendingUserMessage: PendingMessage = {
+      id: `pending-${Date.now()}`,
+      role: 'user',
+      content: messageContent,
+      created_at: new Date().toISOString(),
+      isPending: true,
+    };
+    setPendingMessages(prev => [...prev, pendingUserMessage]);
+
     try {
-      // Process with orchestrator
+      // Process with orchestrator (this will save to database)
       await orchestratorRef.current.processUserRequest(messageContent);
-      toast.success('Message sent successfully');
+      
+      // Remove pending message after successful send
+      setPendingMessages(prev => prev.filter(msg => msg.id !== pendingUserMessage.id));
+      
     } catch (err) {
       console.error('Error sending message:', err);
       toast.error('Failed to send message');
-      setInput(messageContent); // Restore input on error
+      
+      // Remove pending message on error
+      setPendingMessages(prev => prev.filter(msg => msg.id !== pendingUserMessage.id));
+      
+      // Restore input on error
+      setInput(messageContent);
     } finally {
       setIsSending(false);
       setStreamingMessage(null);
@@ -236,7 +297,7 @@ export function ChatArea() {
   }
 
   // Initial empty state - centered input interface
-  if (!currentConversationId || messages.length === 0) {
+  if (!currentConversationId || allMessages.length === 0) {
     return (
       <div className="flex-1 flex flex-col bg-gradient-to-b from-white to-purple-50">
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
@@ -288,7 +349,7 @@ export function ChatArea() {
                   onKeyPress={handleKeyPress}
                   placeholder="@agent chat, # select files..."
                   className="min-h-[120px] border-0 resize-none focus-visible:ring-0 text-base"
-                  disabled={isSending || !currentConversationId}
+                  disabled={isSending}
                 />
               </div>
               
@@ -312,7 +373,7 @@ export function ChatArea() {
                   </Button>
                   <Button
                     onClick={handleSend}
-                    disabled={!input.trim() || isSending || !currentConversationId}
+                    disabled={!input.trim() || isSending}
                     size="icon"
                     className="h-9 w-9 rounded-lg"
                   >
@@ -335,7 +396,7 @@ export function ChatArea() {
   return (
     <div className="flex-1 flex flex-col h-full">
       {/* Messages */}
-      <MessageList messages={messages} streamingMessage={streamingMessage} />
+      <MessageList messages={allMessages} streamingMessage={streamingMessage} />
 
       {/* Input Area */}
       <div className="border-t bg-background p-4">
@@ -369,7 +430,7 @@ export function ChatArea() {
                 onKeyPress={handleKeyPress}
                 placeholder="Type your message... (Shift+Enter for new line)"
                 className="min-h-[60px] max-h-[200px] resize-none pr-24"
-                disabled={isSending || !currentConversationId}
+                disabled={isSending}
               />
               
               {/* Attachment buttons */}
@@ -407,7 +468,7 @@ export function ChatArea() {
             {/* Send Button */}
             <Button
               onClick={handleSend}
-              disabled={!input.trim() || isSending || !currentConversationId}
+              disabled={!input.trim() || isSending}
               size="lg"
               className="px-6"
             >
