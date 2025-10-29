@@ -365,11 +365,14 @@ END $$;
 -- Migration Complete
 -- ============================================
 
-RAISE NOTICE '================================================';
-RAISE NOTICE 'PROJECT Concept Phase 1 Migration Complete!';
-RAISE NOTICE '================================================';
-RAISE NOTICE 'New columns added to projects and conversations';
-RAISE NOTICE 'New tables created: project_events, task_dependencies';
-RAISE NOTICE 'Indexes and RLS policies configured';
-RAISE NOTICE 'Helper functions created';
-RAISE NOTICE '================================================';
+DO $$
+BEGIN
+    RAISE NOTICE '================================================';
+    RAISE NOTICE 'PROJECT Concept Phase 1 Migration Complete!';
+    RAISE NOTICE '================================================';
+    RAISE NOTICE 'New columns added to projects and conversations';
+    RAISE NOTICE 'New tables created: project_events, task_dependencies';
+    RAISE NOTICE 'Indexes and RLS policies configured';
+    RAISE NOTICE 'Helper functions created';
+    RAISE NOTICE '================================================';
+END $$;
