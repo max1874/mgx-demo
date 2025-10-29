@@ -39,37 +39,37 @@ interface PendingMessage {
   isPending: true;
 }
 
-// Agent avatars for quick actions - using UI Avatars service
+// Agent avatars for quick actions - using local image assets
 const agents = [
-  { 
-    name: 'Mike', 
-    avatar: 'https://ui-avatars.com/api/?name=Mike&background=3b82f6&color=fff&size=128', 
-    color: 'bg-blue-500', 
-    title: 'Team Leader' 
+  {
+    name: 'Mike',
+    avatar: '/images/Mike-TeamLeader-Avatar.BVQZLCeX.png',
+    color: 'bg-blue-500',
+    title: 'Team Leader'
   },
-  { 
-    name: 'Emma', 
-    avatar: 'https://ui-avatars.com/api/?name=Emma&background=ec4899&color=fff&size=128', 
-    color: 'bg-pink-500', 
-    title: 'Product Manager' 
+  {
+    name: 'Emma',
+    avatar: '/images/Emma-ProductManager-Avatar.DAgh_sAa.png',
+    color: 'bg-pink-500',
+    title: 'Product Manager'
   },
-  { 
-    name: 'Bob', 
-    avatar: 'https://ui-avatars.com/api/?name=Bob&background=a855f7&color=fff&size=128', 
-    color: 'bg-purple-500', 
-    title: 'System Architect' 
+  {
+    name: 'Bob',
+    avatar: '/images/Bob-Architect-Avatar.Dwg49-6j.png',
+    color: 'bg-purple-500',
+    title: 'System Architect'
   },
-  { 
-    name: 'Alex', 
-    avatar: 'https://ui-avatars.com/api/?name=Alex&background=22c55e&color=fff&size=128', 
-    color: 'bg-green-500', 
-    title: 'Full-stack Engineer' 
+  {
+    name: 'Alex',
+    avatar: '/images/Alex-Engineer-Avatar.DMF78Ta0.png',
+    color: 'bg-green-500',
+    title: 'Full-stack Engineer'
   },
-  { 
-    name: 'David', 
-    avatar: 'https://ui-avatars.com/api/?name=David&background=f97316&color=fff&size=128', 
-    color: 'bg-orange-500', 
-    title: 'Data Analyst' 
+  {
+    name: 'David',
+    avatar: '/images/David-DataAnalyst-Avatar.JI1m4RZ8.png',
+    color: 'bg-orange-500',
+    title: 'Data Analyst'
   },
 ];
 
@@ -89,7 +89,7 @@ export function ChatArea() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Get messages with realtime updates
-  const { messages, loading, error } = useRealtimeMessages({
+  const { messages, loading, error, refetch: refetchMessages } = useRealtimeMessages({
     conversationId: currentConversationId,
     enabled: !!currentConversationId,
   });
@@ -123,6 +123,7 @@ export function ChatArea() {
             console.log(`Agent ${agentName} message:`, content);
             // Clear streaming when complete message arrives
             setStreamingMessage(null);
+            refetchMessages();
           },
           onStreamChunk: (agentName, chunk) => {
             setStreamingMessage(prev => ({
@@ -156,7 +157,7 @@ export function ChatArea() {
         orchestratorRef.current = null;
       }
     };
-  }, [currentConversationId]);
+  }, [currentConversationId, refetchMessages]);
 
   /**
    * Initialize or create new conversation
@@ -222,6 +223,7 @@ export function ChatArea() {
       
       // Remove pending message after successful send
       setPendingMessages(prev => prev.filter(msg => msg.id !== pendingUserMessage.id));
+      refetchMessages();
       
     } catch (err) {
       console.error('Error sending message:', err);
