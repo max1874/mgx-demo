@@ -113,11 +113,18 @@ export function ChatArea() {
 
   // Combine real messages with pending messages (with deduplication)
   const allMessages = (() => {
-    const messageIds = new Set(messages.map(m => m.id));
+    // Create a set of message signatures (content + role + agent) to detect duplicates
+    const messageSignatures = new Set(
+      messages.map(m => `${m.role}:${m.agent_name || ''}:${m.content}`)
+    );
 
     // Only include pending messages that aren't already in the real messages
+    // Check by both ID and content signature to handle race conditions
     const uniquePendingMessages = pendingMessages
-      .filter(pm => !messageIds.has(pm.id))
+      .filter(pm => {
+        const signature = `${pm.role}:${pm.agent_name || ''}:${pm.content}`;
+        return !messageSignatures.has(signature);
+      })
       .map(msg => ({
         id: msg.id,
         conversation_id: msg.conversation_id,
@@ -128,10 +135,19 @@ export function ChatArea() {
         created_at: msg.created_at,
       } as Message));
 
-    return [
-      ...messages,
-      ...uniquePendingMessages,
-    ].sort(
+    // Combine and deduplicate final list by content signature
+    const allMsgs = [...messages, ...uniquePendingMessages];
+    const seen = new Set<string>();
+    const deduplicated = allMsgs.filter(msg => {
+      const signature = `${msg.role}:${msg.agent_name || ''}:${msg.content}`;
+      if (seen.has(signature)) {
+        return false;
+      }
+      seen.add(signature);
+      return true;
+    });
+
+    return deduplicated.sort(
       (a, b) =>
         new Date(a.created_at || 0).getTime() -
         new Date(b.created_at || 0).getTime()
@@ -160,8 +176,6 @@ export function ChatArea() {
 
       try {
         await orchestratorRef.current.processUserRequest(queued.content);
-        // Wait a bit for realtime subscription to process the message
-        await new Promise(resolve => setTimeout(resolve, 100));
         setPendingMessages(prev => prev.filter(msg => msg.id !== queued.id));
         await refetchMessages();
       } catch (err) {
