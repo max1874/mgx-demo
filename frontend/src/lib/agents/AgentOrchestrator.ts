@@ -7,7 +7,10 @@
  */
 
 import { MikeAgent } from './MikeAgent';
+import { EmmaAgent } from './EmmaAgent';
+import { BobAgent } from './BobAgent';
 import { AlexAgent } from './AlexAgent';
+import { DavidAgent } from './DavidAgent';
 import { BaseAgent } from './BaseAgent';
 import {
   AgentMessage,
@@ -52,11 +55,15 @@ export class AgentOrchestrator {
     
     this.llmProvider = this.createLLMProvider(providerType);
 
-    // Initialize agents
+    // Initialize all agents
     this.agents = new Map();
     this.agents.set(AgentRole.MIKE, new MikeAgent(this.llmProvider));
+    this.agents.set(AgentRole.EMMA, new EmmaAgent(this.llmProvider));
+    this.agents.set(AgentRole.BOB, new BobAgent(this.llmProvider));
     this.agents.set(AgentRole.ALEX, new AlexAgent(this.llmProvider));
-    // TODO: Add Emma, Bob, David when implemented
+    this.agents.set(AgentRole.DAVID, new DavidAgent(this.llmProvider));
+    
+    console.log('AgentOrchestrator initialized with 5 agents:', Array.from(this.agents.keys()));
   }
 
   /**
@@ -280,9 +287,7 @@ export class AgentOrchestrator {
           if (executedTask.status === TaskStatus.COMPLETED) {
             // Get agent name safely
             const agentName = this.getAgentName(agent);
-            const resultContent = `**${agentName} completed: ${executedTask.title}**\n\n${
-              executedTask.result?.code || executedTask.result?.analysis || 'Task completed successfully.'
-            }`;
+            const resultContent = this.formatTaskResult(agentName, executedTask);
 
             await createMessage({
               conversation_id: this.conversationId,
@@ -307,6 +312,35 @@ export class AgentOrchestrator {
       this.activeTasks.set(task.id, task);
       this.config.onTaskUpdate?.(task);
       this.config.onError?.(error as Error);
+    }
+  }
+
+  /**
+   * Format task result based on agent type
+   */
+  private formatTaskResult(agentName: string, task: Task): string {
+    const result = task.result;
+    
+    if (!result) {
+      return `**${agentName} completed: ${task.title}**\n\nTask completed successfully.`;
+    }
+
+    // Format based on agent type
+    switch (agentName) {
+      case 'Emma':
+        return `**${agentName} completed: ${task.title}**\n\n${result.prd || result.analysis || 'Requirements analysis completed.'}`;
+      
+      case 'Bob':
+        return `**${agentName} completed: ${task.title}**\n\n${result.architecture || result.techStack || 'Architecture design completed.'}`;
+      
+      case 'Alex':
+        return `**${agentName} completed: ${task.title}**\n\n${result.code || result.plan || 'Implementation completed.'}`;
+      
+      case 'David':
+        return `**${agentName} completed: ${task.title}**\n\n${result.analysis || result.visualizations || 'Data analysis completed.'}`;
+      
+      default:
+        return `**${agentName} completed: ${task.title}**\n\n${JSON.stringify(result, null, 2)}`;
     }
   }
 
