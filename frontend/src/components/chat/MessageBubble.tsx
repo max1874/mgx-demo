@@ -13,6 +13,7 @@ import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { Components } from 'react-markdown';
 
@@ -24,6 +25,30 @@ interface MessageBubbleProps {
   streaming?: boolean;
 }
 
+// Agent avatar configuration
+const agentAvatars: Record<string, { avatar: string; color: string }> = {
+  'Mike': {
+    avatar: '/images/Mike-TeamLeader-Avatar.BVQZLCeX.png',
+    color: 'bg-blue-500',
+  },
+  'Emma': {
+    avatar: '/images/Emma-ProductManager-Avatar.DAgh_sAa.png',
+    color: 'bg-pink-500',
+  },
+  'Bob': {
+    avatar: '/images/Bob-Architect-Avatar.Dwg49-6j.png',
+    color: 'bg-purple-500',
+  },
+  'Alex': {
+    avatar: '/images/Alex-Engineer-Avatar.DMF78Ta0.png',
+    color: 'bg-green-500',
+  },
+  'David': {
+    avatar: '/images/David-DataAnalyst-Avatar.JI1m4RZ8.png',
+    color: 'bg-orange-500',
+  },
+};
+
 function MessageBubbleComponent({
   role,
   content,
@@ -33,6 +58,9 @@ function MessageBubbleComponent({
 }: MessageBubbleProps) {
   const isUser = role === 'user';
   const isSystem = role === 'system';
+
+  // Get agent avatar info
+  const agentInfo = agentName ? agentAvatars[agentName] : undefined;
 
   // Format timestamp
   const formattedTime = timestamp
@@ -113,6 +141,16 @@ function MessageBubbleComponent({
         isUser ? 'justify-end' : 'justify-start'
       )}
     >
+      {/* Agent avatar (only for assistant messages) */}
+      {!isUser && agentInfo && (
+        <Avatar className="w-8 h-8 shrink-0">
+          <AvatarImage src={agentInfo.avatar} alt={agentName} />
+          <AvatarFallback className={agentInfo.color}>
+            {agentName?.[0] || 'A'}
+          </AvatarFallback>
+        </Avatar>
+      )}
+
       {/* Message content */}
       <div
         className={cn(

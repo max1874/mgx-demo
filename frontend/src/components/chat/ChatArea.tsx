@@ -160,6 +160,8 @@ export function ChatArea() {
 
       try {
         await orchestratorRef.current.processUserRequest(queued.content);
+        // Wait a bit for realtime subscription to process the message
+        await new Promise(resolve => setTimeout(resolve, 100));
         setPendingMessages(prev => prev.filter(msg => msg.id !== queued.id));
         await refetchMessages();
       } catch (err) {
