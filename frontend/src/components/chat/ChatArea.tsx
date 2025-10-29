@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { MessageBubble } from './MessageBubble';
 import { AgentStatusIndicator } from './AgentStatusIndicator';
-import { Send, Loader2, Bot } from 'lucide-react';
+import { Send, Loader2, Plus, Upload, AtSign, User, Settings, ChevronDown, FileText, Search, BookOpen, Link } from 'lucide-react';
 import type { Database } from '@/types/database';
 
 type Message = Database['public']['Tables']['messages']['Row'];
@@ -167,28 +167,109 @@ export function ChatArea() {
     }
   };
 
-  if (!currentConversationId) {
+  // Initial empty state
+  if (!currentConversationId || messages.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="text-center space-y-4 max-w-2xl px-4">
-          <Bot className="h-16 w-16 mx-auto text-muted-foreground" />
-          <h3 className="text-2xl font-semibold">Welcome to MGX Demo</h3>
-          <p className="text-muted-foreground">
-            Select a conversation from the sidebar or create a new one to start chatting with our AI agents.
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-8">
-            {['Mike', 'Emma', 'Bob', 'Alex', 'David'].map((agent) => (
-              <div key={agent} className="p-4 rounded-lg border border-border bg-card hover:bg-accent transition-colors">
-                <Bot className="h-8 w-8 mx-auto mb-2 text-primary" />
-                <p className="text-sm font-medium text-center">{agent}</p>
+      <div className="flex-1 flex flex-col bg-gradient-to-b from-white to-purple-50">
+        <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
+          {/* Agent Avatars */}
+          <div className="flex items-center gap-3 mb-8">
+            {[
+              { name: 'Alex', color: 'ring-orange-400' },
+              { name: 'Emma', color: 'ring-purple-400' },
+              { name: 'Bob', color: 'ring-green-400' },
+              { name: 'Mike', color: 'ring-blue-400' },
+              { name: 'David', color: 'ring-cyan-400' },
+            ].map((agent) => (
+              <div
+                key={agent.name}
+                className={`relative w-12 h-12 rounded-full ring-2 ${agent.color} ring-offset-2 overflow-hidden hover:scale-110 transition-transform cursor-pointer`}
+              >
+                <img
+                  src={`/avatars/${agent.name.toLowerCase()}.png`}
+                  alt={agent.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"%3E%3Ccircle cx="12" cy="12" r="10"/%3E%3Cpath d="M12 6v6l4 2"/%3E%3C/svg%3E';
+                  }}
+                />
               </div>
             ))}
+            <button className="w-12 h-12 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-gray-400 hover:bg-gray-50 transition-colors">
+              <Plus className="h-5 w-5 text-gray-400" />
+            </button>
+          </div>
+
+          {/* Title */}
+          <h1 className="text-3xl font-semibold text-gray-900 mb-12">
+            用智能体构建您的想法
+          </h1>
+
+          {/* Input Area */}
+          <div className="w-full max-w-3xl">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+              <div className="flex items-center gap-2 p-4 border-b border-gray-100">
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-gray-500 hover:text-gray-700">
+                  <Plus className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-green-500 hover:text-green-700">
+                  <Upload className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-gray-500 hover:text-gray-700">
+                  <AtSign className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-gray-500 hover:text-gray-700">
+                  <User className="h-5 w-5" />
+                </Button>
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-gray-500 hover:text-gray-700">
+                  <Settings className="h-5 w-5" />
+                </Button>
+                
+                <div className="flex-1" />
+                
+                <Button variant="ghost" className="h-9 px-3 text-sm font-medium text-gray-700 hover:text-gray-900">
+                  Claude Sonnet 4.5
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+              
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="@agent 聊天, # 选择文件。"
+                className="min-h-[120px] border-0 focus-visible:ring-0 resize-none text-base px-4 py-4"
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="flex items-center gap-6 mt-8">
+            <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-colors">
+              <FileText className="h-4 w-4" />
+              幻灯片
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-colors">
+              <Search className="h-4 w-4" />
+              深度研究
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-colors">
+              <BookOpen className="h-4 w-4" />
+              博客
+            </button>
+            <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-white rounded-lg transition-colors">
+              <Link className="h-4 w-4" />
+              链接中心
+            </button>
           </div>
         </div>
       </div>
     );
   }
 
+  // Chat view with messages
   return (
     <div className="flex-1 flex flex-col bg-background">
       {/* Header */}
@@ -204,35 +285,22 @@ export function ChatArea() {
       {/* Messages */}
       <ScrollArea className="flex-1 p-4" ref={scrollRef}>
         <div className="space-y-4 max-w-4xl mx-auto">
-          {messages.length === 0 && !streamingMessage ? (
-            <div className="text-center text-muted-foreground py-12">
-              <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">No messages yet</p>
-              <p className="text-sm">Start the conversation by typing a message below</p>
-            </div>
-          ) : (
-            <>
-              {messages.map((message) => {
-                const agentName = message.agent_name as AgentName | null;
-                return (
-                  <MessageBubble
-                    key={message.id}
-                    role={message.role as 'user' | 'assistant'}
-                    content={message.content}
-                    agentName={agentName || undefined}
-                    timestamp={message.created_at || undefined}
-                  />
-                );
-              })}
-              
-              {streamingMessage && (
-                <MessageBubble
-                  role="assistant"
-                  content={streamingMessage.content}
-                  agentName={streamingMessage.agentName}
-                />
-              )}
-            </>
+          {messages.map((message) => (
+            <MessageBubble
+              key={message.id}
+              role={message.role as 'user' | 'assistant'}
+              content={message.content}
+              agentName={(message.agent_name as AgentName) || undefined}
+              timestamp={message.created_at || undefined}
+            />
+          ))}
+          
+          {streamingMessage && (
+            <MessageBubble
+              role="assistant"
+              content={streamingMessage.content}
+              agentName={streamingMessage.agentName}
+            />
           )}
         </div>
       </ScrollArea>
