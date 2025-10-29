@@ -166,10 +166,10 @@ export abstract class BaseAgent {
   protected sendMessage(
     type: MessageType,
     content: string,
-    to?: AgentRole | AgentRole[],
+    to?: AgentRole | AgentRole[] | string,
     metadata?: Record<string, any>
   ): AgentMessage {
-    return createAgentMessage(type, this.config.role, content, { to, metadata });
+    return createAgentMessage(type, content, this.config.role, to, metadata);
   }
 
   /**

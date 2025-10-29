@@ -1,38 +1,31 @@
 /**
- * Agent Communication Protocol
+ * Message Protocol for Agent Communication
  * 
- * This module defines the message types and protocols used for communication
- * between agents in the multi-agent system.
+ * Defines the structure and types for messages exchanged between agents.
  */
 
+export enum AgentRole {
+  MIKE = 'Mike',
+  EMMA = 'Emma',
+  BOB = 'Bob',
+  ALEX = 'Alex',
+  DAVID = 'David',
+  IRIS = 'Iris',
+  USER = 'user',
+  SYSTEM = 'system',
+}
+
 export enum MessageType {
-  // User messages
   USER_REQUEST = 'user_request',
-  
-  // Agent coordination
+  AGENT_MESSAGE = 'agent_message',
+  AGENT_QUESTION = 'agent_question',
+  AGENT_RESPONSE = 'agent_response',
   TASK_ASSIGNMENT = 'task_assignment',
   TASK_ACCEPTED = 'task_accepted',
   TASK_REJECTED = 'task_rejected',
   TASK_COMPLETED = 'task_completed',
   TASK_FAILED = 'task_failed',
-  
-  // Agent communication
-  AGENT_MESSAGE = 'agent_message',
-  AGENT_QUESTION = 'agent_question',
-  AGENT_RESPONSE = 'agent_response',
-  
-  // System messages
-  SYSTEM_STATUS = 'system_status',
   SYSTEM_ERROR = 'system_error',
-}
-
-export enum AgentRole {
-  MIKE = 'Mike',      // Team Leader
-  EMMA = 'Emma',      // Product Manager
-  BOB = 'Bob',        // System Architect
-  ALEX = 'Alex',      // Full-stack Engineer
-  DAVID = 'David',    // Data Analyst
-  IRIS = 'Iris',      // Deep Research Specialist
 }
 
 export enum TaskStatus {
@@ -40,31 +33,31 @@ export enum TaskStatus {
   IN_PROGRESS = 'in_progress',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  BLOCKED = 'blocked',
+  CANCELLED = 'cancelled',
 }
 
 export interface AgentMessage {
   id: string;
   type: MessageType;
-  from: AgentRole;
-  to?: AgentRole | AgentRole[];  // undefined means broadcast
+  from: AgentRole | string;
+  to?: AgentRole | AgentRole[] | string;
   content: string;
   metadata?: Record<string, any>;
-  timestamp: number;
+  timestamp: Date;
 }
 
 export interface Task {
   id: string;
   title: string;
   description: string;
-  assignee: AgentRole;
+  assignee: AgentRole | string;
   status: TaskStatus;
-  dependencies?: string[];  // Task IDs that must be completed first
-  priority: 'low' | 'medium' | 'high';
-  createdAt: number;
-  updatedAt: number;
+  priority?: 'low' | 'medium' | 'high';
+  dependencies?: string[];
   result?: any;
   error?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface AgentContext {
@@ -72,8 +65,8 @@ export interface AgentContext {
   projectId: string;
   userId: string;
   mode: 'team' | 'engineer' | 'research' | 'race';
-  tasks: Task[];
   messages: AgentMessage[];
+  tasks: Task[];
 }
 
 /**
@@ -81,21 +74,19 @@ export interface AgentContext {
  */
 export function createAgentMessage(
   type: MessageType,
-  from: AgentRole,
   content: string,
-  options?: {
-    to?: AgentRole | AgentRole[];
-    metadata?: Record<string, any>;
-  }
+  from: AgentRole | string,
+  to?: AgentRole | AgentRole[] | string,
+  metadata?: Record<string, any>
 ): AgentMessage {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     type,
     from,
-    to: options?.to,
+    to,
     content,
-    metadata: options?.metadata,
-    timestamp: Date.now(),
+    metadata,
+    timestamp: new Date(),
   };
 }
 
@@ -105,22 +96,22 @@ export function createAgentMessage(
 export function createTask(
   title: string,
   description: string,
-  assignee: AgentRole,
+  assignee: AgentRole | string,
   options?: {
-    dependencies?: string[];
     priority?: 'low' | 'medium' | 'high';
+    dependencies?: string[];
   }
 ): Task {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     title,
     description,
     assignee,
     status: TaskStatus.PENDING,
-    dependencies: options?.dependencies,
-    priority: options?.priority ?? 'medium',
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    priority: options?.priority || 'medium',
+    dependencies: options?.dependencies || [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
   };
 }
 
@@ -138,20 +129,13 @@ export function updateTaskStatus(
     status,
     result,
     error,
-    updatedAt: Date.now(),
+    updatedAt: new Date(),
   };
 }
 
 /**
- * Check if a task's dependencies are satisfied
+ * Generate a unique ID
  */
-export function areDependenciesSatisfied(task: Task, allTasks: Task[]): boolean {
-  if (!task.dependencies || task.dependencies.length === 0) {
-    return true;
-  }
-
-  return task.dependencies.every(depId => {
-    const depTask = allTasks.find(t => t.id === depId);
-    return depTask?.status === TaskStatus.COMPLETED;
-  });
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }

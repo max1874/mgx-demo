@@ -1,125 +1,157 @@
-import { useEffect, useState, useRef } from 'react';
+/**
+ * Chat Area Component
+ * 
+ * Main chat interface with message list and input.
+ * Integrates with Agent Orchestrator for AI-powered conversations.
+ */
+
+import { useState, useEffect, useRef } from 'react';
+import { MessageList } from './MessageList';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Send, 
+  Paperclip, 
+  Mic, 
+  Image as ImageIcon,
+  Loader2,
+  Plus,
+  ChevronDown,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLayout } from '@/contexts/LayoutContext';
-import { supabase } from '@/lib/supabase';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Textarea } from '@/components/ui/textarea';
-import { MessageBubble } from './MessageBubble';
-import { AgentStatusIndicator } from './AgentStatusIndicator';
-import { Send, Loader2, Plus, ChevronDown, FileText, Search, BookOpen, Link } from 'lucide-react';
-import type { Database } from '@/types/database';
+import { useRealtimeMessages } from '@/hooks/useRealtimeMessages';
+import { AgentOrchestrator } from '@/lib/agents/AgentOrchestrator';
+import { createConversation } from '@/lib/api/conversations';
+import { toast } from 'sonner';
 
-type Message = Database['public']['Tables']['messages']['Row'];
-type AgentName = 'Mike' | 'Emma' | 'Bob' | 'Alex' | 'David';
-type AgentState = 'idle' | 'thinking' | 'executing' | 'completed' | 'failed';
-
+// Agent avatars for quick actions
 const agents = [
-  { 
-    name: 'Mike', 
-    avatar: '/avatars/mike.png', 
-    title: 'Team Leader',
-    description: 'Coordinates team members and manages workflow'
-  },
-  { 
-    name: 'Alex', 
-    avatar: '/avatars/alex.png', 
-    title: 'Full-stack Engineer',
-    description: 'Implements and deploys applications'
-  },
-  { 
-    name: 'Emma', 
-    avatar: '/avatars/emma.png', 
-    title: 'Product Manager',
-    description: 'Analyzes requirements and creates PRDs'
-  },
-  { 
-    name: 'David', 
-    avatar: '/avatars/david.png', 
-    title: 'Data Analyst',
-    description: 'Processes data and performs analysis'
-  },
-  { 
-    name: 'Bob', 
-    avatar: '/avatars/bob.png', 
-    title: 'System Architect',
-    description: 'Designs technical architecture'
-  },
-];
-
-const quickActions = [
-  { icon: FileText, label: '幻灯片', color: 'text-pink-600' },
-  { icon: Search, label: '深度研究', color: 'text-blue-600' },
-  { icon: BookOpen, label: '博客', color: 'text-green-600' },
-  { icon: Link, label: '链接中心', color: 'text-purple-600' },
+  { name: 'Mike', avatar: '/avatars/mike.png', color: 'bg-blue-500', title: 'Team Leader' },
+  { name: 'Emma', avatar: '/avatars/emma.png', color: 'bg-pink-500', title: 'Product Manager' },
+  { name: 'Bob', avatar: '/avatars/bob.png', color: 'bg-purple-500', title: 'System Architect' },
+  { name: 'Alex', avatar: '/avatars/alex.png', color: 'bg-green-500', title: 'Full-stack Engineer' },
+  { name: 'David', avatar: '/avatars/david.png', color: 'bg-orange-500', title: 'Data Analyst' },
+  { name: 'Iris', avatar: '/avatars/iris.png', color: 'bg-indigo-500', title: 'Deep Research Specialist' },
 ];
 
 export function ChatArea() {
   const { user } = useAuth();
-  const { currentConversationId } = useLayout();
-  
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { currentProject, currentConversationId, setCurrentConversation } = useLayout();
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [currentAgent, setCurrentAgent] = useState<AgentName | null>(null);
-  const [agentState, setAgentState] = useState<AgentState>('idle');
+  const [isSending, setIsSending] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState<{
-    agentName: AgentName;
+    agentName: string;
     content: string;
   } | null>(null);
   
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const orchestratorRef = useRef<AgentOrchestrator | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Fetch messages for current conversation
+  // Get messages with realtime updates
+  const { messages, loading, error } = useRealtimeMessages({
+    conversationId: currentConversationId,
+    enabled: !!currentConversationId,
+  });
+
+  // Initialize conversation when project is selected
   useEffect(() => {
-    if (!currentConversationId) {
-      setMessages([]);
-      return;
+    if (currentProject && user && !currentConversationId) {
+      initializeConversation();
+    }
+  }, [currentProject, user, currentConversationId]);
+
+  // Initialize orchestrator when conversation is ready
+  useEffect(() => {
+    if (currentConversationId && !orchestratorRef.current) {
+      orchestratorRef.current = new AgentOrchestrator({
+        conversationId: currentConversationId,
+        onAgentMessage: (agentName, content) => {
+          console.log(`Agent ${agentName} message:`, content);
+        },
+        onStreamChunk: (agentName, chunk) => {
+          setStreamingMessage(prev => ({
+            agentName,
+            content: (prev?.content || '') + chunk,
+          }));
+        },
+        onError: (error) => {
+          console.error('Orchestrator error:', error);
+          toast.error(`Error: ${error.message}`);
+        },
+      });
     }
 
-    const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('conversation_id', currentConversationId)
-        .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching messages:', error);
-      } else {
-        setMessages(data || []);
-      }
-    };
-
-    fetchMessages();
-
-    // Subscribe to real-time updates
-    const subscription = supabase
-      .channel('messages')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `conversation_id=eq.${currentConversationId}`,
-      }, (payload) => {
-        setMessages(prev => [...prev, payload.new as Message]);
-      })
-      .subscribe();
-
     return () => {
-      subscription.unsubscribe();
+      if (orchestratorRef.current) {
+        orchestratorRef.current.clear();
+        orchestratorRef.current = null;
+      }
     };
   }, [currentConversationId]);
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, streamingMessage]);
+  /**
+   * Initialize or get existing conversation
+   */
+  const initializeConversation = async () => {
+    if (!currentProject || !user) return;
 
-  // Auto-resize textarea
+    try {
+      // Create a new conversation
+      const { data, error } = await createConversation({
+        project_id: currentProject.id,
+        user_id: user.id,
+        title: 'New Conversation',
+      });
+
+      if (error) throw error;
+      if (data) {
+        setCurrentConversation(data.id);
+      }
+    } catch (err) {
+      console.error('Error initializing conversation:', err);
+      toast.error('Failed to initialize conversation');
+    }
+  };
+
+  /**
+   * Handle sending message
+   */
+  const handleSend = async () => {
+    if (!input.trim() || isSending || !orchestratorRef.current) return;
+
+    const messageContent = input.trim();
+    setInput('');
+    setIsSending(true);
+    setStreamingMessage(null);
+
+    try {
+      // Process with orchestrator
+      await orchestratorRef.current.processUserRequest(messageContent);
+      toast.success('Message sent successfully');
+    } catch (err) {
+      console.error('Error sending message:', err);
+      toast.error('Failed to send message');
+      setInput(messageContent); // Restore input on error
+    } finally {
+      setIsSending(false);
+      setStreamingMessage(null);
+    }
+  };
+
+  /**
+   * Handle key press in textarea
+   */
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  /**
+   * Auto-resize textarea
+   */
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
@@ -127,90 +159,35 @@ export function ChatArea() {
     }
   }, [input]);
 
-  const handleSend = async () => {
-    if (!input.trim() || !currentConversationId || !user || loading) return;
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
-    setLoading(true);
-    const messageContent = input.trim();
-    setInput('');
-
-    try {
-      // Save user message
-      const { error: insertError } = await supabase
-        .from('messages')
-        .insert({
-          conversation_id: currentConversationId,
-          topic: 'chat',
-          role: 'user',
-          extension: 'txt',
-          content: messageContent,
-        });
-
-      if (insertError) {
-        console.error('Error sending message:', insertError);
-        setInput(messageContent);
-        return;
-      }
-
-      // Simulate agent response
-      setCurrentAgent('Alex');
-      setAgentState('thinking');
-      
-      setTimeout(() => {
-        setAgentState('executing');
-        const response = `I've received your message: "${messageContent}"\n\nThis is a placeholder response. The actual agent integration will provide real AI-powered responses.`;
-        
-        let index = 0;
-        const streamInterval = setInterval(() => {
-          if (index < response.length) {
-            setStreamingMessage({
-              agentName: 'Alex',
-              content: response.slice(0, index + 1),
-            });
-            index++;
-          } else {
-            clearInterval(streamInterval);
-            setAgentState('completed');
-            
-            supabase.from('messages').insert({
-              conversation_id: currentConversationId,
-              topic: 'chat',
-              role: 'assistant',
-              agent_name: 'Alex',
-              extension: 'txt',
-              content: response,
-            });
-            
-            setTimeout(() => {
-              setStreamingMessage(null);
-              setCurrentAgent(null);
-              setAgentState('idle');
-            }, 1000);
-          }
-        }, 20);
-      }, 1000);
-    } catch (error) {
-      console.error('Error processing message:', error);
-      setInput(messageContent);
-      setAgentState('failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
+  // Show error state
+  if (error) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-destructive mb-2">Failed to load messages</p>
+          <Button onClick={initializeConversation} variant="outline">
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Initial empty state - centered input interface
   if (!currentConversationId || messages.length === 0) {
     return (
       <div className="flex-1 flex flex-col bg-gradient-to-b from-white to-purple-50">
         <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
-          {/* Agent Avatars with overlap effect */}
+          {/* Agent Avatars */}
           <div className="flex items-center mb-8">
             {agents.map((agent, index) => (
               <div
@@ -218,23 +195,14 @@ export function ChatArea() {
                 className="relative group cursor-pointer -ml-2.5 first:ml-0 transition-transform hover:scale-110 hover:z-50"
                 style={{ zIndex: agents.length - index }}
               >
-                <div className="w-14 h-14 rounded-full overflow-hidden bg-white shadow-lg">
-                  <img
-                    src={agent.avatar}
-                    alt={agent.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/avatars/default.png';
-                    }}
-                  />
+                <div className={`w-14 h-14 rounded-full ${agent.color} flex items-center justify-center text-white text-xl font-bold shadow-lg`}>
+                  {agent.name[0]}
                 </div>
                 {/* Hover tooltip */}
                 <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
                   <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
                     <div className="font-semibold">{agent.name}</div>
                     <div className="text-gray-300">{agent.title}</div>
-                    <div className="text-gray-400 text-[10px] mt-1">{agent.description}</div>
-                    {/* Arrow */}
                     <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
                   </div>
                 </div>
@@ -251,7 +219,7 @@ export function ChatArea() {
 
           {/* Title */}
           <h1 className="text-3xl font-bold text-gray-800 mb-12">
-            用智能体构建您的想法
+            Build Your Ideas with AI Agents
           </h1>
 
           {/* Input Area */}
@@ -262,50 +230,46 @@ export function ChatArea() {
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="@agent 聊天, # 选择文件。"
+                  onKeyPress={handleKeyPress}
+                  placeholder="@agent chat, # select files..."
                   className="min-h-[120px] border-0 resize-none focus-visible:ring-0 text-base"
-                  disabled={loading}
+                  disabled={isSending || !currentConversationId}
                 />
               </div>
               
               {/* Toolbar */}
-              <div className="flex items-center justify-end px-4 py-3 border-t border-gray-100 gap-3">
-                <Button
-                  variant="ghost"
-                  className="h-9 px-3 text-sm font-medium"
-                >
-                  Claude Sonnet 4.5
-                  <ChevronDown className="ml-2 h-4 w-4" />
-                </Button>
-                <Button
-                  onClick={handleSend}
-                  disabled={!input.trim() || loading}
-                  size="icon"
-                  className="h-9 w-9 rounded-lg"
-                >
-                  {loading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <ImageIcon className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9">
+                    <Mic className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button variant="ghost" className="h-9 px-3 text-sm font-medium">
+                    Claude Sonnet 4.5
+                    <ChevronDown className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    onClick={handleSend}
+                    disabled={!input.trim() || isSending || !currentConversationId}
+                    size="icon"
+                    className="h-9 w-9 rounded-lg"
+                  >
+                    {isSending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="flex items-center gap-4 mt-8">
-            {quickActions.map((action) => (
-              <Button
-                key={action.label}
-                variant="ghost"
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium hover:bg-white/80 rounded-lg transition-colors"
-              >
-                <action.icon className={`h-4 w-4 ${action.color}`} />
-                <span className="text-gray-700">{action.label}</span>
-              </Button>
-            ))}
           </div>
         </div>
       </div>
@@ -314,68 +278,98 @@ export function ChatArea() {
 
   // Chat interface with messages
   return (
-    <div className="flex-1 flex flex-col bg-background">
-      {/* Header */}
-      <div className="border-b p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Chat</h2>
-          {currentAgent && (
-            <AgentStatusIndicator agentName={currentAgent} state={agentState} />
-          )}
-        </div>
-      </div>
-
+    <div className="flex-1 flex flex-col h-full">
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        <div className="space-y-4 max-w-4xl mx-auto">
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              role={message.role as 'user' | 'assistant'}
-              content={message.content}
-              agentName={(message.agent_name as AgentName) || undefined}
-              timestamp={message.created_at || undefined}
-            />
-          ))}
-          
-          {streamingMessage && (
-            <MessageBubble
-              role="assistant"
-              content={streamingMessage.content}
-              agentName={streamingMessage.agentName}
-            />
-          )}
-        </div>
-      </ScrollArea>
+      <MessageList messages={messages} streamingMessage={streamingMessage} />
 
-      {/* Input */}
-      <div className="border-t p-4">
-        <div className="max-w-4xl mx-auto flex gap-2">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message... (Shift+Enter for new line)"
-            className="min-h-[60px] max-h-[200px] resize-none"
-            disabled={loading}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || loading}
-            size="icon"
-            className="h-[60px] w-[60px] shrink-0"
-          >
-            {loading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
-          </Button>
+      {/* Input Area */}
+      <div className="border-t bg-background p-4">
+        <div className="max-w-4xl mx-auto">
+          {/* Agent Avatars */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm text-muted-foreground">Quick actions:</span>
+            {agents.map((agent) => (
+              <button
+                key={agent.name}
+                className={`w-8 h-8 rounded-full ${agent.color} flex items-center justify-center text-white text-xs font-medium hover:opacity-80 transition-opacity`}
+                title={`Ask ${agent.name}`}
+                onClick={() => setInput(`@${agent.name} `)}
+              >
+                {agent.name[0]}
+              </button>
+            ))}
+          </div>
+
+          {/* Input Box */}
+          <div className="flex gap-2">
+            <div className="flex-1 relative">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your message... (Shift+Enter for new line)"
+                className="min-h-[60px] max-h-[200px] resize-none pr-24"
+                disabled={isSending || !currentConversationId}
+              />
+              
+              {/* Attachment buttons */}
+              <div className="absolute right-2 bottom-2 flex gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  title="Attach file"
+                  disabled={isSending}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  title="Attach image"
+                  disabled={isSending}
+                >
+                  <ImageIcon className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  title="Voice input"
+                  disabled={isSending}
+                >
+                  <Mic className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Send Button */}
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim() || isSending || !currentConversationId}
+              size="lg"
+              className="px-6"
+            >
+              {isSending ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  <Send className="h-5 w-5 mr-2" />
+                  Send
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Helper text */}
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            {isSending
+              ? 'Processing your request...'
+              : 'Press Enter to send, Shift+Enter for new line'}
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground text-center mt-2">
-          Press Enter to send, Shift+Enter for new line
-        </p>
       </div>
     </div>
   );
