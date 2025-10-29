@@ -295,6 +295,9 @@ export class AgentOrchestrator {
             });
 
             this.config.onAgentMessage?.(agentName, resultContent);
+
+            // 🔔 Notify Mike about the completed work
+            await this.notifyMikeOfCompletion(agentName, executedTask);
           }
         } else if (response.type === MessageType.TASK_REJECTED) {
           task.status = TaskStatus.FAILED;
@@ -311,6 +314,100 @@ export class AgentOrchestrator {
       this.config.onTaskUpdate?.(task);
       this.config.onError?.(error as Error);
     }
+  }
+
+  /**
+   * Notify Mike when a sub-agent completes their work
+   * Mike can then review and synthesize the results
+   */
+  private async notifyMikeOfCompletion(agentName: string, task: Task): Promise<void> {
+    try {
+      const mike = this.agents.get(AgentRole.MIKE);
+      if (!mike) return;
+
+      console.log(`🔔 Notifying Mike: ${agentName} completed "${task.title}"`);
+
+      // Check if all tasks are completed
+      const allTasks = Array.from(this.activeTasks.values());
+      const allCompleted = allTasks.every(t => t.status === TaskStatus.COMPLETED);
+
+      if (!allCompleted) {
+        console.log('⏳ Mike: Waiting for other team members to finish...');
+        return;
+      }
+
+      // All tasks done! Ask Mike to synthesize results
+      console.log('✅ All tasks completed. Mike reviewing results...');
+
+      const synthesisPrompt = `All team members have completed their work. Here are the results:
+
+${allTasks.map(t => {
+  const agent = this.getAgentNameForRole(t.assignee);
+  return `**${agent}**: ${t.title}
+Output: ${JSON.stringify(t.result, null, 2)}`;
+}).join('\n\n')}
+
+Your task as team leader:
+1. Review each team member's work
+2. Synthesize the results into a cohesive response
+3. Present it clearly to the user
+4. Highlight key insights and next steps
+
+Provide a comprehensive summary for the user.`;
+
+      mike.setContext({
+        conversationId: this.conversationId,
+        projectId: '',
+        userId: '',
+        mode: 'team',
+        messages: this.messageHistory,
+        tasks: allTasks,
+      });
+
+      // Get Mike's synthesis (streaming)
+      let mikeSynthesis = '';
+      const synthesisMessage = createAgentMessage(
+        MessageType.USER_REQUEST,
+        synthesisPrompt,
+        AgentRole.SYSTEM,
+        AgentRole.MIKE
+      );
+
+      const mikeResponse = await mike.processMessageStreaming(synthesisMessage, (chunk) => {
+        mikeSynthesis += chunk;
+        this.config.onStreamChunk?.('Mike', chunk);
+      });
+
+      if (mikeResponse && mikeSynthesis) {
+        // Save Mike's synthesis
+        await createMessage({
+          conversation_id: this.conversationId,
+          role: 'assistant',
+          agent_name: 'Mike',
+          content: mikeSynthesis,
+        });
+
+        this.config.onAgentMessage?.('Mike', mikeSynthesis);
+        console.log('✅ Mike synthesis completed');
+      }
+
+    } catch (error) {
+      console.error('Error notifying Mike:', error);
+    }
+  }
+
+  /**
+   * Get agent name from role
+   */
+  private getAgentNameForRole(role: AgentRole | string): string {
+    const nameMap: Record<string, string> = {
+      [AgentRole.EMMA]: 'Emma',
+      [AgentRole.BOB]: 'Bob',
+      [AgentRole.ALEX]: 'Alex',
+      [AgentRole.DAVID]: 'David',
+      [AgentRole.MIKE]: 'Mike',
+    };
+    return nameMap[role] || String(role);
   }
 
   /**

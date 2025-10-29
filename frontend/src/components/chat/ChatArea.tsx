@@ -111,26 +111,32 @@ export function ChatArea() {
     enabled: !!currentConversationId,
   });
 
-  // Combine real messages with pending messages
-  const allMessages = [
-    ...messages,
-    ...pendingMessages.map(
-      (msg) =>
-        ({
-          id: msg.id,
-          conversation_id: msg.conversation_id,
-          role: msg.role,
-          agent_name: msg.agent_name ?? null,
-          content: msg.content,
-          metadata: null,
-          created_at: msg.created_at,
-        } as Message)
-    ),
-  ].sort(
-    (a, b) =>
-      new Date(a.created_at || 0).getTime() -
-      new Date(b.created_at || 0).getTime()
-  );
+  // Combine real messages with pending messages (with deduplication)
+  const allMessages = (() => {
+    const messageIds = new Set(messages.map(m => m.id));
+
+    // Only include pending messages that aren't already in the real messages
+    const uniquePendingMessages = pendingMessages
+      .filter(pm => !messageIds.has(pm.id))
+      .map(msg => ({
+        id: msg.id,
+        conversation_id: msg.conversation_id,
+        role: msg.role,
+        agent_name: msg.agent_name ?? null,
+        content: msg.content,
+        metadata: null,
+        created_at: msg.created_at,
+      } as Message));
+
+    return [
+      ...messages,
+      ...uniquePendingMessages,
+    ].sort(
+      (a, b) =>
+        new Date(a.created_at || 0).getTime() -
+        new Date(b.created_at || 0).getTime()
+    );
+  })();
 
   const processQueue = useCallback(async () => {
     if (isProcessingRef.current) return;

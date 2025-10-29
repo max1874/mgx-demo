@@ -21,18 +21,6 @@ import {
 } from './MessageProtocol';
 import type { LLMProvider } from '../llm/LLMProvider';
 
-/**
- * Request classification result
- */
-interface RequestAnalysis {
-  type: 'chat' | 'query' | 'simple_task' | 'development';
-  complexity: 'simple' | 'medium' | 'complex';
-  requiredAgents: AgentRole[];
-  shouldDelegate: boolean;
-  reasoning: string;
-  directResponse?: string;
-}
-
 export class MikeAgent extends BaseAgent {
   constructor(llmProvider: LLMProvider) {
     super({
@@ -45,206 +33,79 @@ export class MikeAgent extends BaseAgent {
   }
 
   /**
-   * Get system prompt with intelligent request handling
+   * Get system prompt with autonomous decision-making
    */
   private static getSystemPromptText(): string {
-    return `You are Mike, an intelligent team leader who knows when to handle requests directly vs when to delegate.
+    return `You are Mike, an autonomous team leader with intelligent decision-making capabilities.
 
-CORE RESPONSIBILITIES:
-1. Analyze user intent and request complexity
-2. Respond directly to simple queries and conversations
-3. Delegate complex tasks to appropriate team members
-4. Coordinate team collaboration when needed
+YOUR TEAM:
+- Emma (Product Manager): Analyzes requirements, creates PRD, defines user stories
+- Bob (System Architect): Designs architecture, selects tech stack, creates system design
+- Alex (Full-stack Engineer): Implements features, writes code, handles deployment
+- David (Data Analyst): Analyzes data, creates insights, builds visualizations
 
-DECISION FRAMEWORK:
+YOUR ROLE:
+You are the central hub. For every user request, you autonomously decide:
+1. Should I handle this myself?
+2. Do I need to call any team members?
+3. If yes, which ones and in what order?
+4. How should I communicate the results back to the user?
 
-RESPOND DIRECTLY (No delegation) when:
-- Simple greetings (hi, hello, how are you)
-- Basic questions about the system
-- Language preference changes
-- Clarification requests
-- General conversation
-- Simple information queries
+DECISION-MAKING PROCESS:
+Analyze each request independently. Consider:
+- User's actual intent (not just keywords)
+- Complexity and scope
+- Required expertise
+- Whether collaboration adds value
 
-Examples:
-- "hi" → Greet warmly and ask how you can help
-- "Answer in Simplified Chinese" → Confirm and switch to Chinese
-- "What can you do?" → Explain team capabilities
-- "Thanks" → Acknowledge politely
+DO NOT use rigid rules or patterns. Think like a real team leader:
+- "Hi, what can you do?" → Just answer directly, no need for team
+- "Build a todo app" → This needs Emma (requirements) → Bob (design) → Alex (code)
+- "Help me choose a database" → Bob can handle this alone
+- "Analyze user retention" → David can handle this alone
 
-DELEGATE TO SINGLE AGENT when:
-- Single feature implementation
-- Specific technical question
-- Data analysis request
-- Design consultation
+CALLING SUB-AGENTS:
+When you decide to call a sub-agent:
+1. Clearly explain what you need them to do
+2. Provide relevant context
+3. Wait for their response
+4. Review their work
+5. Synthesize and present results to the user
 
-Examples:
-- "Create a login form" → Assign to Alex (Engineer)
-- "Analyze user data" → Assign to David (Data Analyst)
-- "Design database schema" → Assign to Bob (Architect)
+You will receive sub-agent responses and should:
+- Acknowledge their work
+- Integrate it into your response
+- Add your own insights
+- Present a cohesive answer to the user
 
-FULL TEAM COLLABORATION when:
-- Complete system development
-- Multi-feature projects
-- Complex architectural decisions
-- End-to-end product development
+IMPORTANT:
+- Think autonomously, don't follow rigid patterns
+- You can call 0, 1, or multiple agents based on need
+- You can call agents sequentially (wait for one before calling next)
+- Always explain your reasoning to build user trust
+- Maintain context across the conversation
 
-Examples:
-- "Build an e-commerce platform" → Emma, Bob, Alex, David
-- "Create a social media app" → Full team coordination
-
-TEAM MEMBERS:
-- Emma (Product Manager): Requirements, PRD, user stories
-- Bob (System Architect): Architecture, tech stack, design patterns
-- Alex (Full-stack Engineer): Implementation, coding, deployment
-- David (Data Analyst): Data analysis, insights, visualizations
-
-RESPONSE GUIDELINES:
-1. For simple requests: Answer directly in 2-3 sentences
-2. For medium requests: Brief analysis + delegate to 1-2 agents
-3. For complex requests: Detailed breakdown + full team coordination
-4. Always be conversational and helpful
-5. Avoid over-engineering simple requests
-6. Ask clarifying questions when intent is unclear
-
-LANGUAGE HANDLING:
-- If user requests Chinese, respond in Chinese immediately
-- No need to create tasks for language preference changes
-- Just acknowledge and continue in requested language
-
-Remember: Not every message needs a project plan. Be smart about what actually requires team involvement.`;
-  }
-
-  /**
-   * Classify request intelligently
-   */
-  private async classifyRequest(userMessage: string): Promise<RequestAnalysis> {
-    const lowerMessage = userMessage.toLowerCase().trim();
-
-    // Simple greetings and chat
-    const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening'];
-    const thanks = ['thanks', 'thank you', 'thx', 'appreciate'];
-    
-    if (greetings.some(g => lowerMessage === g || lowerMessage.startsWith(g + ' '))) {
-      return {
-        type: 'chat',
-        complexity: 'simple',
-        requiredAgents: [],
-        shouldDelegate: false,
-        reasoning: 'Simple greeting - respond directly',
-        directResponse: 'Hello! I\'m Mike, your team leader. How can I help you today? I can coordinate our team to build software, analyze data, or answer questions about our capabilities.'
-      };
-    }
-
-    if (thanks.some(t => lowerMessage.includes(t))) {
-      return {
-        type: 'chat',
-        complexity: 'simple',
-        requiredAgents: [],
-        shouldDelegate: false,
-        reasoning: 'Gratitude expression - acknowledge politely',
-        directResponse: 'You\'re welcome! Let me know if you need anything else.'
-      };
-    }
-
-    // Language preference changes
-    if (lowerMessage.includes('chinese') || lowerMessage.includes('中文')) {
-      return {
-        type: 'query',
-        complexity: 'simple',
-        requiredAgents: [],
-        shouldDelegate: false,
-        reasoning: 'Language preference - confirm and switch',
-        directResponse: '好的！我现在会用简体中文回复。有什么我可以帮助你的吗？'
-      };
-    }
-
-    // System capability queries
-    const capabilityQueries = ['what can you do', 'what are you', 'who are you', 'help', 'capabilities'];
-    if (capabilityQueries.some(q => lowerMessage.includes(q))) {
-      return {
-        type: 'query',
-        complexity: 'simple',
-        requiredAgents: [],
-        shouldDelegate: false,
-        reasoning: 'System capability query - explain directly',
-        directResponse: `I'm Mike, leading a team of AI agents:
-- Emma (Product Manager): Defines requirements and creates PRDs
-- Bob (System Architect): Designs system architecture
-- Alex (Full-stack Engineer): Implements features and writes code
-- David (Data Analyst): Analyzes data and creates insights
-
-We can help you build software, analyze data, design systems, or answer technical questions. What would you like to work on?`
-      };
-    }
-
-    // Use LLM for complex classification
-    const classificationPrompt = `Analyze this user request and classify it:
-
-User message: "${userMessage}"
-
-Classify as:
-1. Type: chat | query | simple_task | development
-2. Complexity: simple | medium | complex
-3. Required agents: [] for none, or list from [Emma, Bob, Alex, David]
-4. Should delegate: true/false
-
-Guidelines:
-- "chat": Greetings, thanks, casual conversation → No agents
-- "query": Questions about system, capabilities → No agents
-- "simple_task": Single feature, small change → 1 agent (usually Alex)
-- "development": Full project, multiple features → Multiple agents
-
-Examples:
-- "hi" → chat, simple, [], false
-- "create a button" → simple_task, simple, [Alex], true
-- "build a todo app" → development, medium, [Emma, Alex], true
-- "build e-commerce platform" → development, complex, [Emma, Bob, Alex, David], true
-
-Respond in JSON format:
+RESPONSE FORMAT:
+When calling agents, use JSON to structure your decision:
 {
-  "type": "...",
-  "complexity": "...",
-  "requiredAgents": [...],
-  "shouldDelegate": true/false,
-  "reasoning": "..."
+  "action": "delegate" | "respond",
+  "reasoning": "why you made this decision",
+  "agents_needed": ["Emma", "Bob", "Alex", "David"] or [],
+  "response": "your message to the user"
+}
+
+When responding directly (no agents needed):
+{
+  "action": "respond",
+  "reasoning": "this is a simple query that doesn't need team involvement",
+  "agents_needed": [],
+  "response": "your direct answer"
 }`;
-
-    try {
-      const response = await this.generateResponse(classificationPrompt);
-
-      const analysis = JSON.parse(response);
-      
-      // Map agent names to roles
-      const agentMap: Record<string, AgentRole> = {
-        'Emma': AgentRole.EMMA,
-        'Bob': AgentRole.BOB,
-        'Alex': AgentRole.ALEX,
-        'David': AgentRole.DAVID
-      };
-
-      return {
-        type: analysis.type,
-        complexity: analysis.complexity,
-        requiredAgents: analysis.requiredAgents.map((name: string) => agentMap[name]).filter(Boolean),
-        shouldDelegate: analysis.shouldDelegate,
-        reasoning: analysis.reasoning
-      };
-    } catch (error) {
-      console.error('Classification failed, defaulting to safe classification:', error);
-      // Default to medium complexity if classification fails
-      return {
-        type: 'development',
-        complexity: 'medium',
-        requiredAgents: [AgentRole.ALEX],
-        shouldDelegate: true,
-        reasoning: 'Classification failed - defaulting to safe delegation'
-      };
-    }
   }
 
+
   /**
-   * Process message with streaming support
+   * Process message with autonomous LLM-driven decision making
    */
   async processMessageStreaming(
     message: AgentMessage,
@@ -255,121 +116,100 @@ Respond in JSON format:
     }
 
     try {
-      // Step 1: Classify the request (non-streaming, fast)
-      const analysis = await this.classifyRequest(message.content);
-      
-      console.log('Request Analysis:', analysis);
+      // Get conversation context
+      const conversationHistory = this.context?.messages || [];
+      const recentHistory = conversationHistory
+        .slice(-5)
+        .map(m => `${m.from}: ${m.content}`)
+        .join('\n');
 
-      // Step 2: Handle based on classification
-      if (!analysis.shouldDelegate) {
-        // Simple request - use streaming for direct response
-        if (analysis.directResponse) {
-          // For pre-defined responses, simulate streaming
-          const response = analysis.directResponse;
-          for (let i = 0; i < response.length; i++) {
-            onChunk(response[i]);
-            // Small delay to simulate typing effect
-            await new Promise(resolve => setTimeout(resolve, 10));
-          }
-          
-          return createAgentMessage(
-            MessageType.AGENT_RESPONSE,
-            response,
-            this.config.role,
-            AgentRole.USER,
-            { analysis }
-          );
+      // Ask Mike to autonomously decide what to do
+      const decisionPrompt = `User request: "${message.content}"
+
+Recent conversation:
+${recentHistory || 'No previous messages'}
+
+Analyze this request and decide autonomously:
+1. Can you handle this yourself, or do you need to call team members?
+2. If calling team members, who and why?
+3. What should you tell the user?
+
+Respond in this JSON format:
+{
+  "action": "respond" or "delegate",
+  "reasoning": "your thinking process",
+  "agents_needed": [] or ["Emma", "Bob", "Alex", "David"],
+  "immediate_response": "what you'll tell the user right now"
+}`;
+
+      console.log('🤔 Mike: Making autonomous decision...');
+
+      const decision = await this.generateResponse(decisionPrompt);
+      console.log('💡 Mike decision:', decision);
+
+      let parsedDecision;
+      try {
+        parsedDecision = JSON.parse(decision);
+      } catch (e) {
+        // Fallback: extract JSON from markdown code blocks
+        const jsonMatch = decision.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (jsonMatch) {
+          parsedDecision = JSON.parse(jsonMatch[1]);
+        } else {
+          throw new Error('Failed to parse decision JSON');
         }
+      }
 
-        // Generate streaming response using LLM
-        const fullResponse = await this.generateStreamingResponse(
+      // Stream Mike's immediate response
+      const immediateResponse = parsedDecision.immediate_response || parsedDecision.response;
+      for (let i = 0; i < immediateResponse.length; i++) {
+        onChunk(immediateResponse[i]);
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+
+      // If Mike decides to delegate, create tasks
+      if (parsedDecision.action === 'delegate' && parsedDecision.agents_needed?.length > 0) {
+        console.log('📋 Mike: Creating tasks for', parsedDecision.agents_needed);
+
+        // Create context-rich tasks
+        const tasks = await this.createContextualTasks(
           message.content,
-          onChunk
+          parsedDecision.agents_needed,
+          parsedDecision.reasoning
         );
 
         return createAgentMessage(
           MessageType.AGENT_RESPONSE,
-          fullResponse,
+          immediateResponse,
           this.config.role,
           AgentRole.USER,
-          { analysis }
+          {
+            tasks,
+            decision: parsedDecision,
+            mikeReasoning: parsedDecision.reasoning
+          }
         );
       }
 
-      // Step 3: Complex request - stream the analysis, then create tasks
-      if (analysis.complexity === 'simple' && analysis.requiredAgents.length === 1) {
-        // Single agent task - stream the delegation message
-        const agentName = this.getAgentName(analysis.requiredAgents[0]);
-        const response = `I'll help you with that. Let me assign this to ${agentName}.`;
-        
-        // Stream the response
-        for (let i = 0; i < response.length; i++) {
-          onChunk(response[i]);
-          await new Promise(resolve => setTimeout(resolve, 10));
-        }
-        
-        const tasks: Task[] = [{
-          id: `task-${Date.now()}`,
-          title: message.content.substring(0, 50),
-          description: message.content,
-          assignee: analysis.requiredAgents[0],
-          status: TaskStatus.PENDING,
-          priority: 'high',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        }];
-
-        return createAgentMessage(
-          MessageType.AGENT_RESPONSE,
-          response,
-          this.config.role,
-          AgentRole.USER,
-          { tasks, analysis }
-        );
-      }
-
-      // Complex project - stream the full analysis
-      const analysisPrompt = `Analyze this project request and create a detailed plan:
-
-User Request: "${message.content}"
-
-Complexity: ${analysis.complexity}
-Required Team: ${analysis.requiredAgents.map(a => this.getAgentName(a)).join(', ')}
-
-Provide:
-1. Project overview (2-3 sentences)
-2. Task breakdown for each team member
-3. Estimated timeline
-4. Dependencies
-
-Format as a clear, structured response.`;
-
-      const planResponse = await this.generateStreamingResponse(
-        analysisPrompt,
-        onChunk
-      );
-
-      // Create detailed, structured tasks for team members
-      const tasks = await this.createDetailedTasks(message.content, analysis.requiredAgents);
-
+      // Mike handles it directly
+      console.log('✅ Mike: Handling directly');
       return createAgentMessage(
         MessageType.AGENT_RESPONSE,
-        planResponse,
+        immediateResponse,
         this.config.role,
         AgentRole.USER,
-        { tasks, analysis }
+        { decision: parsedDecision }
       );
 
     } catch (error) {
-      console.error('Error processing message:', error);
-      const errorMsg = "I encountered an issue processing your request. Could you please try again?";
-      
-      // Stream error message
+      console.error('❌ Mike: Error in autonomous decision:', error);
+      const errorMsg = "I encountered an issue analyzing your request. Could you please rephrase it?";
+
       for (let i = 0; i < errorMsg.length; i++) {
         onChunk(errorMsg[i]);
         await new Promise(resolve => setTimeout(resolve, 10));
       }
-      
+
       return createAgentMessage(
         MessageType.AGENT_RESPONSE,
         errorMsg,
@@ -388,61 +228,72 @@ Format as a clear, structured response.`;
   }
 
   /**
-   * Create detailed, structured tasks for each agent (inspired by MetaGPT)
+   * Create contextual tasks based on Mike's autonomous decision
    */
-  private async createDetailedTasks(userRequest: string, requiredAgents: AgentRole[]): Promise<Task[]> {
-    const taskPrompt = `Break down this project into specific, actionable tasks for each team member.
+  private async createContextualTasks(
+    userRequest: string,
+    agentNames: string[],
+    reasoning: string
+  ): Promise<Task[]> {
+    const agentMap: Record<string, AgentRole> = {
+      'Emma': AgentRole.EMMA,
+      'Bob': AgentRole.BOB,
+      'Alex': AgentRole.ALEX,
+      'David': AgentRole.DAVID
+    };
 
-Project: "${userRequest}"
+    const requiredAgents = agentNames
+      .map(name => agentMap[name])
+      .filter(Boolean);
 
-Team members: ${requiredAgents.map(a => this.getAgentName(a)).join(', ')}
+    // Ask LLM to create specific tasks with full context
+    const taskPrompt = `You are Mike, creating specific work assignments for your team.
 
-For each team member, define:
-1. Title: Clear, specific task title
-2. Description: Detailed description of what they need to deliver
-3. Expected Output: What concrete deliverable they should produce
+User's original request: "${userRequest}"
 
-Team member roles:
-- Emma (Product Manager): Create PRD, user stories, requirements
-- Bob (System Architect): Design architecture, tech stack, data models
-- Alex (Full-stack Engineer): Implement features, write code
-- David (Data Analyst): Analyze data requirements, create insights
+Your reasoning: "${reasoning}"
+
+Team members you've chosen: ${agentNames.join(', ')}
+
+For each team member, create a clear, specific task assignment that includes:
+1. What they need to do (specific deliverable)
+2. Why this is needed (context from user request)
+3. What output format you expect
+4. Any dependencies on other team members
 
 Respond in JSON format:
 {
   "tasks": [
     {
-      "agent": "Emma",
-      "title": "...",
-      "description": "...",
-      "expectedOutput": "...",
-      "dependencies": []
-    },
-    ...
+      "agent": "Emma" | "Bob" | "Alex" | "David",
+      "title": "Brief, specific title",
+      "description": "Detailed description including context and expected output",
+      "depends_on": [] or ["Emma", "Bob", etc.]
+    }
   ]
 }
 
-Set dependencies:
-- Bob depends on Emma (needs PRD)
-- Alex depends on Bob (needs architecture)
-- David can work in parallel or depend on Emma`;
+Remember: These are real work assignments, not generic templates. Be specific about what you need.`;
 
     try {
       const response = await this.generateResponse(taskPrompt);
-      const parsed = JSON.parse(response);
+      let parsed;
 
-      // Map to Task objects with proper dependencies
-      const agentMap: Record<string, AgentRole> = {
-        'Emma': AgentRole.EMMA,
-        'Bob': AgentRole.BOB,
-        'Alex': AgentRole.ALEX,
-        'David': AgentRole.DAVID
-      };
+      try {
+        parsed = JSON.parse(response);
+      } catch (e) {
+        const jsonMatch = response.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+        if (jsonMatch) {
+          parsed = JSON.parse(jsonMatch[1]);
+        } else {
+          throw e;
+        }
+      }
 
       const tasks: Task[] = [];
       const taskIdMap: Record<string, string> = {};
 
-      // First pass: Create all tasks
+      // Create tasks with IDs
       parsed.tasks.forEach((taskDef: any, index: number) => {
         const taskId = `task-${Date.now()}-${index}`;
         const agentRole = agentMap[taskDef.agent];
@@ -453,21 +304,21 @@ Set dependencies:
           tasks.push({
             id: taskId,
             title: taskDef.title,
-            description: `${taskDef.description}\n\n**Expected Output:**\n${taskDef.expectedOutput}`,
+            description: taskDef.description,
             assignee: agentRole,
             status: TaskStatus.PENDING,
             priority: 'high',
-            dependencies: [], // Will be filled in second pass
+            dependencies: [],
             createdAt: new Date(),
             updatedAt: new Date(),
           });
         }
       });
 
-      // Second pass: Set up dependencies
+      // Set up dependencies
       parsed.tasks.forEach((taskDef: any, index: number) => {
-        if (taskDef.dependencies && Array.isArray(taskDef.dependencies)) {
-          const dependencyIds = taskDef.dependencies
+        if (taskDef.depends_on && Array.isArray(taskDef.depends_on)) {
+          const dependencyIds = taskDef.depends_on
             .map((dep: string) => taskIdMap[dep])
             .filter(Boolean);
 
@@ -477,59 +328,34 @@ Set dependencies:
         }
       });
 
-      console.log('Created detailed tasks:', tasks);
+      console.log('📋 Mike created contextual tasks:', tasks);
       return tasks;
 
     } catch (error) {
-      console.error('Failed to create detailed tasks, falling back to simple tasks:', error);
-
-      // Fallback: Create simple tasks
-      return requiredAgents.map((agent, index) => {
-        const taskId = `task-${Date.now()}-${index}`;
-        let dependencies: string[] = [];
-
-        // Simple dependency chain: Emma → Bob → Alex
-        if (agent === AgentRole.BOB && index > 0) {
-          dependencies = [`task-${Date.now()}-${index - 1}`];
-        } else if (agent === AgentRole.ALEX && index > 1) {
-          dependencies = [`task-${Date.now()}-${index - 1}`];
-        }
-
-        return {
-          id: taskId,
-          title: `${this.getAgentName(agent)}: ${userRequest}`,
-          description: this.getDefaultTaskDescription(agent, userRequest),
-          assignee: agent,
-          status: TaskStatus.PENDING,
-          priority: 'high',
-          dependencies,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-      });
+      console.error('Failed to create contextual tasks:', error);
+      // Fallback to simple task creation
+      return this.createSimpleTasks(userRequest, requiredAgents);
     }
   }
 
   /**
-   * Get default task description for an agent
+   * Fallback: Create simple tasks if LLM task generation fails
    */
-  private getDefaultTaskDescription(agent: AgentRole, userRequest: string): string {
-    switch (agent) {
-      case AgentRole.EMMA:
-        return `Analyze the project requirements and create a Product Requirements Document (PRD) for: ${userRequest}\n\n**Expected Output:**\n- User stories\n- Feature requirements\n- Success criteria`;
-
-      case AgentRole.BOB:
-        return `Design the system architecture for: ${userRequest}\n\n**Expected Output:**\n- Architecture diagram\n- Technology stack recommendations\n- Data model design\n- API specifications`;
-
-      case AgentRole.ALEX:
-        return `Implement the features for: ${userRequest}\n\n**Expected Output:**\n- Implementation plan\n- Code structure\n- Key components\n- Deployment guide`;
-
-      case AgentRole.DAVID:
-        return `Analyze data requirements and create insights for: ${userRequest}\n\n**Expected Output:**\n- Data analysis\n- Metrics recommendations\n- Dashboard design`;
-
-      default:
-        return `Work on: ${userRequest}`;
-    }
+  private createSimpleTasks(userRequest: string, requiredAgents: AgentRole[]): Task[] {
+    return requiredAgents.map((agent, index) => {
+      const taskId = `task-${Date.now()}-${index}`;
+      return {
+        id: taskId,
+        title: `${this.getAgentName(agent)}: ${userRequest.substring(0, 50)}`,
+        description: `${userRequest}\n\nPlease provide your expertise on this request.`,
+        assignee: agent,
+        status: TaskStatus.PENDING,
+        priority: 'high',
+        dependencies: index > 0 ? [`task-${Date.now()}-${index - 1}`] : [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    });
   }
 
   /**

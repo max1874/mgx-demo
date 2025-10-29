@@ -13,7 +13,6 @@ import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { Components } from 'react-markdown';
 
@@ -24,23 +23,6 @@ interface MessageBubbleProps {
   timestamp?: string;
   streaming?: boolean;
 }
-
-// Agent avatars using local image files
-const agentAvatars: Record<string, string> = {
-  Mike: '/images/Mike-TeamLeader-Avatar.BVQZLCeX.png',
-  Emma: '/images/Emma-ProductManager-Avatar.DAgh_sAa.png',
-  Bob: '/images/Bob-Architect-Avatar.Dwg49-6j.png',
-  Alex: '/images/Alex-Engineer-Avatar.DMF78Ta0.png',
-  David: '/images/David-DataAnalyst-Avatar.JI1m4RZ8.png',
-};
-
-const agentColors: Record<string, string> = {
-  Mike: 'bg-blue-500',
-  Emma: 'bg-pink-500',
-  Bob: 'bg-purple-500',
-  Alex: 'bg-green-500',
-  David: 'bg-orange-500',
-};
 
 function MessageBubbleComponent({
   role,
@@ -128,22 +110,9 @@ function MessageBubbleComponent({
     <div
       className={cn(
         'flex gap-3 mb-4',
-        isUser ? 'flex-row-reverse' : 'flex-row'
+        isUser ? 'justify-end' : 'justify-start'
       )}
     >
-      {/* Avatar */}
-      {!isUser && (
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarImage
-            src={agentName ? agentAvatars[agentName] : undefined}
-            alt={agentName || 'AI'}
-          />
-          <AvatarFallback className={agentName ? agentColors[agentName] : 'bg-gray-500'}>
-            {agentName ? agentName[0] : 'AI'}
-          </AvatarFallback>
-        </Avatar>
-      )}
-
       {/* Message content */}
       <div
         className={cn(
@@ -187,15 +156,6 @@ function MessageBubbleComponent({
           </div>
         )}
       </div>
-
-      {/* User avatar */}
-      {isUser && (
-        <Avatar className="h-8 w-8 shrink-0">
-          <AvatarFallback className="bg-primary text-primary-foreground">
-            U
-          </AvatarFallback>
-        </Avatar>
-      )}
     </div>
   );
 }
