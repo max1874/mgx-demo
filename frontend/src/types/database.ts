@@ -49,6 +49,15 @@ export interface Database {
           generated_code: Json | null
           version: number | null
           parent_project_id: string | null
+          // New fields for PROJECT concept
+          github_repo_url: string | null
+          github_branch: string | null
+          project_type: 'web' | 'mobile' | 'data' | 'slides' | 'custom' | null
+          status: 'planning' | 'in_progress' | 'completed' | 'paused' | 'failed' | null
+          core_context: Json | null
+          master_conversation_id: string | null
+          progress: Json | null
+          completed_at: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -61,6 +70,14 @@ export interface Database {
           generated_code?: Json | null
           version?: number | null
           parent_project_id?: string | null
+          github_repo_url?: string | null
+          github_branch?: string | null
+          project_type?: 'web' | 'mobile' | 'data' | 'slides' | 'custom' | null
+          status?: 'planning' | 'in_progress' | 'completed' | 'paused' | 'failed' | null
+          core_context?: Json | null
+          master_conversation_id?: string | null
+          progress?: Json | null
+          completed_at?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -73,6 +90,14 @@ export interface Database {
           generated_code?: Json | null
           version?: number | null
           parent_project_id?: string | null
+          github_repo_url?: string | null
+          github_branch?: string | null
+          project_type?: 'web' | 'mobile' | 'data' | 'slides' | 'custom' | null
+          status?: 'planning' | 'in_progress' | 'completed' | 'paused' | 'failed' | null
+          core_context?: Json | null
+          master_conversation_id?: string | null
+          progress?: Json | null
+          completed_at?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -85,6 +110,10 @@ export interface Database {
           user_id: string
           mode: string | null
           title: string | null
+          // New fields for Master-Worker pattern
+          conversation_type: 'master' | 'worker' | null
+          parent_conversation_id: string | null
+          task: Json | null
           created_at: string | null
           updated_at: string | null
         }
@@ -94,6 +123,9 @@ export interface Database {
           user_id: string
           mode?: string | null
           title?: string | null
+          conversation_type?: 'master' | 'worker' | null
+          parent_conversation_id?: string | null
+          task?: Json | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -103,6 +135,9 @@ export interface Database {
           user_id?: string
           mode?: string | null
           title?: string | null
+          conversation_type?: 'master' | 'worker' | null
+          parent_conversation_id?: string | null
+          task?: Json | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -318,6 +353,72 @@ export interface Database {
           error_message?: string | null
           created_at?: string | null
           deployed_at?: string | null
+        }
+        Relationships: []
+      }
+      project_events: {
+        Row: {
+          id: string
+          project_id: string
+          conversation_id: string | null
+          event_type: string
+          metadata: Json | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          conversation_id?: string | null
+          event_type: string
+          metadata?: Json | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          conversation_id?: string | null
+          event_type?: string
+          metadata?: Json | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      task_dependencies: {
+        Row: {
+          id: string
+          project_id: string
+          dependent_conversation_id: string
+          dependency_conversation_id: string
+          dependency_type: 'blocks' | 'requires' | 'optional' | null
+          description: string | null
+          satisfied: boolean | null
+          satisfied_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          dependent_conversation_id: string
+          dependency_conversation_id: string
+          dependency_type?: 'blocks' | 'requires' | 'optional' | null
+          description?: string | null
+          satisfied?: boolean | null
+          satisfied_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          dependent_conversation_id?: string
+          dependency_conversation_id?: string
+          dependency_type?: 'blocks' | 'requires' | 'optional' | null
+          description?: string | null
+          satisfied?: boolean | null
+          satisfied_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
