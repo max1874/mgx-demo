@@ -237,7 +237,12 @@ export function ChatArea() {
         });
         setOrchestratorError(null);
         console.log(`Orchestrator initialized with model: ${modelConfig.displayName}`);
-        processQueue();
+
+        // Process any queued messages after initialization
+        // Call processQueue directly without depending on it in the effect deps
+        if (messageQueueRef.current.length > 0 && !isProcessingRef.current) {
+          processQueue();
+        }
       } catch (error) {
         console.error('Failed to initialize AgentOrchestrator:', error);
         const message =
@@ -255,7 +260,10 @@ export function ChatArea() {
         orchestratorRef.current = null;
       }
     };
-  }, [currentConversationId, selectedModel, modelConfig, refetchMessages, processQueue]);
+    // Only reinitialize when conversation or model actually changes
+    // Don't include functions or objects that may change reference
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentConversationId, selectedModel]);
 
   /**
    * Initialize or create new conversation
