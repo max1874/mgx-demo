@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useModel } from '@/contexts/ModelContext';
-import { ModelType, getAvailableModels } from '@/lib/llm/ModelConfig';
+import { getAvailableModels } from '@/lib/llm/ModelConfig';
 import { cn } from '@/lib/utils';
 
 export function ModelSelector() {
@@ -37,8 +37,7 @@ export function ModelSelector() {
         align="end"
         className="w-64 bg-gray-900 border-gray-800 text-white"
       >
-        {availableModels.map((model) => {
-          const config = model;
+        {availableModels.map((config) => {
           const isSelected = selectedModel === config.id;
 
           return (

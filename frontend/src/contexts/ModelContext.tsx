@@ -4,7 +4,7 @@
  * Manages the selected LLM model across the application
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { ModelType, loadSelectedModel, saveSelectedModel, getModelConfig } from '@/lib/llm/ModelConfig';
 
 interface ModelContextType {

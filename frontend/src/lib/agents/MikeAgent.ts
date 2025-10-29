@@ -2,10 +2,11 @@
  * Mike Agent - Team Leader
  * 
  * Responsibilities:
- * - Analyze user requests and classify complexity
- * - Intelligently decide when to delegate vs respond directly
- * - Coordinate team members for complex tasks
- * - Provide direct responses for simple queries
+ * - Analyze user requests intelligently
+ * - Classify request complexity
+ * - Decide when to delegate vs respond directly
+ * - Coordinate team members when needed
+ * - Provide direct answers for simple queries
  */
 
 import { BaseAgent } from './BaseAgent';
@@ -23,7 +24,7 @@ import type { LLMProvider } from '../llm/LLMProvider';
  * Request classification result
  */
 interface RequestAnalysis {
-  type: 'chat' | 'query' | 'task' | 'development';
+  type: 'chat' | 'query' | 'simple_task' | 'development';
   complexity: 'simple' | 'medium' | 'complex';
   requiredAgents: AgentRole[];
   shouldDelegate: boolean;
@@ -33,294 +34,348 @@ interface RequestAnalysis {
 
 export class MikeAgent extends BaseAgent {
   constructor(llmProvider: LLMProvider) {
-    super(AgentRole.MIKE, llmProvider);
+    super({
+      role: AgentRole.MIKE,
+      name: 'Mike',
+      description: 'Team Leader - Analyzes requests, coordinates team, and provides direct answers',
+      systemPrompt: MikeAgent.getSystemPromptText(),
+      llmProvider,
+    });
   }
 
   /**
-   * Get agent's system prompt with intelligent delegation guidelines
+   * Get system prompt with intelligent request handling
    */
-  protected getSystemPrompt(): string {
-    return `You are Mike, the team leader of a software development team.
+  private static getSystemPromptText(): string {
+    return `You are Mike, an intelligent team leader who knows when to handle requests directly vs when to delegate.
 
-Your team members:
-- Emma (Product Manager): Requirements analysis, PRD creation
-- Bob (System Architect): Technical design, architecture planning
-- Alex (Full-stack Engineer): Code implementation, deployment
-- David (Data Analyst): Data analysis, visualization
+CORE RESPONSIBILITIES:
+1. Analyze user intent and request complexity
+2. Respond directly to simple queries and conversations
+3. Delegate complex tasks to appropriate team members
+4. Coordinate team collaboration when needed
 
-CRITICAL: You must intelligently classify requests and avoid over-engineering.
+DECISION FRAMEWORK:
 
-REQUEST CLASSIFICATION RULES:
+RESPOND DIRECTLY (No delegation) when:
+- Simple greetings (hi, hello, how are you)
+- Basic questions about the system
+- Language preference changes
+- Clarification requests
+- General conversation
+- Simple information queries
 
-1. SIMPLE REQUESTS (Respond directly, NO delegation):
-   - Greetings: "hi", "hello", "hey"
-   - Simple questions: "what can you do?", "who are you?"
-   - Language preferences: "answer in Chinese", "speak Spanish"
-   - Clarifications: "what do you mean?", "can you explain?"
-   - Acknowledgments: "ok", "thanks", "got it"
-   
-   Action: Provide a friendly, direct response. Do NOT create tasks.
+Examples:
+- "hi" → Greet warmly and ask how you can help
+- "Answer in Simplified Chinese" → Confirm and switch to Chinese
+- "What can you do?" → Explain team capabilities
+- "Thanks" → Acknowledge politely
 
-2. QUERY REQUESTS (Respond directly with information):
-   - Technical questions: "what is React?", "how does OAuth work?"
-   - Best practices: "what's the best way to...?"
-   - Recommendations: "which framework should I use?"
-   
-   Action: Answer the question directly. Do NOT create tasks unless explicitly asked to build something.
+DELEGATE TO SINGLE AGENT when:
+- Single feature implementation
+- Specific technical question
+- Data analysis request
+- Design consultation
 
-3. SIMPLE TASKS (Delegate to 1 agent):
-   - Single feature: "create a login form", "add a search bar"
-   - Simple modification: "change the color scheme", "fix this bug"
-   - Quick analysis: "analyze this data", "review this code"
-   
-   Action: Assign to the appropriate single agent (Alex for code, David for data, etc.)
+Examples:
+- "Create a login form" → Assign to Alex (Engineer)
+- "Analyze user data" → Assign to David (Data Analyst)
+- "Design database schema" → Assign to Bob (Architect)
 
-4. COMPLEX DEVELOPMENT (Full team collaboration):
-   - Complete applications: "build a todo app", "create an e-commerce site"
-   - Multi-feature projects: "develop a dashboard with auth and analytics"
-   - System design needed: "architect a scalable platform"
-   
-   Action: Create comprehensive plan with multiple agents.
+FULL TEAM COLLABORATION when:
+- Complete system development
+- Multi-feature projects
+- Complex architectural decisions
+- End-to-end product development
 
-RESPONSE FORMAT:
+Examples:
+- "Build an e-commerce platform" → Emma, Bob, Alex, David
+- "Create a social media app" → Full team coordination
 
-For SIMPLE/QUERY requests, respond with:
-{
-  "type": "chat" or "query",
-  "complexity": "simple",
-  "shouldDelegate": false,
-  "directResponse": "Your friendly response here",
-  "reasoning": "This is a simple greeting/question that doesn't require team involvement"
-}
+TEAM MEMBERS:
+- Emma (Product Manager): Requirements, PRD, user stories
+- Bob (System Architect): Architecture, tech stack, design patterns
+- Alex (Full-stack Engineer): Implementation, coding, deployment
+- David (Data Analyst): Data analysis, insights, visualizations
 
-For TASK/DEVELOPMENT requests, respond with:
-{
-  "type": "task" or "development",
-  "complexity": "medium" or "complex",
-  "shouldDelegate": true,
-  "requiredAgents": ["Alex"] or ["Emma", "Bob", "Alex"],
-  "reasoning": "This requires actual development work"
-}
+RESPONSE GUIDELINES:
+1. For simple requests: Answer directly in 2-3 sentences
+2. For medium requests: Brief analysis + delegate to 1-2 agents
+3. For complex requests: Detailed breakdown + full team coordination
+4. Always be conversational and helpful
+5. Avoid over-engineering simple requests
+6. Ask clarifying questions when intent is unclear
 
-EXAMPLES:
+LANGUAGE HANDLING:
+- If user requests Chinese, respond in Chinese immediately
+- No need to create tasks for language preference changes
+- Just acknowledge and continue in requested language
 
-User: "hi"
-Response: {"type": "chat", "complexity": "simple", "shouldDelegate": false, "directResponse": "Hello! I'm Mike, your team leader. How can I help you today?", "reasoning": "Simple greeting"}
-
-User: "Answer in Simplified Chinese"
-Response: {"type": "chat", "complexity": "simple", "shouldDelegate": false, "directResponse": "好的！我会用简体中文回复。有什么我可以帮助您的吗？", "reasoning": "Language preference, no development needed"}
-
-User: "what can you do?"
-Response: {"type": "query", "complexity": "simple", "shouldDelegate": false, "directResponse": "I lead a development team that can help you build web applications, analyze data, and solve technical problems. What would you like to create?", "reasoning": "Informational query"}
-
-User: "create a login form"
-Response: {"type": "task", "complexity": "medium", "shouldDelegate": true, "requiredAgents": ["Alex"], "reasoning": "Single feature implementation"}
-
-User: "build a todo app with authentication"
-Response: {"type": "development", "complexity": "complex", "shouldDelegate": true, "requiredAgents": ["Emma", "Bob", "Alex"], "reasoning": "Complete application requiring planning and implementation"}
-
-Remember: Your goal is to be helpful and efficient, not to over-engineer simple interactions.`;
+Remember: Not every message needs a project plan. Be smart about what actually requires team involvement.`;
   }
 
   /**
-   * Classify user request using LLM
+   * Classify request intelligently
    */
   private async classifyRequest(userMessage: string): Promise<RequestAnalysis> {
-    const classificationPrompt = `Analyze this user request and classify it according to the rules provided in your system prompt.
+    const lowerMessage = userMessage.toLowerCase().trim();
 
-User request: "${userMessage}"
-
-Respond with ONLY a valid JSON object matching the RequestAnalysis format. No additional text.`;
-
-    try {
-      const response = await this.llm.chat([
-        { role: 'system', content: this.getSystemPrompt() },
-        { role: 'user', content: classificationPrompt }
-      ]);
-
-      // Parse the LLM response
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error('Invalid classification response format');
-      }
-
-      const analysis = JSON.parse(jsonMatch[0]) as RequestAnalysis;
-      
-      // Validate the analysis
-      if (!analysis.type || !analysis.complexity || analysis.shouldDelegate === undefined) {
-        throw new Error('Incomplete classification result');
-      }
-
-      console.log('Request classification:', analysis);
-      return analysis;
-
-    } catch (error) {
-      console.error('Classification error:', error);
-      
-      // Fallback: treat as simple chat if classification fails
+    // Simple greetings and chat
+    const greetings = ['hi', 'hello', 'hey', 'good morning', 'good afternoon', 'good evening'];
+    const thanks = ['thanks', 'thank you', 'thx', 'appreciate'];
+    
+    if (greetings.some(g => lowerMessage === g || lowerMessage.startsWith(g + ' '))) {
       return {
         type: 'chat',
         complexity: 'simple',
         requiredAgents: [],
         shouldDelegate: false,
-        reasoning: 'Classification failed, treating as simple interaction',
-        directResponse: "I'm here to help! Could you please rephrase your request?"
+        reasoning: 'Simple greeting - respond directly',
+        directResponse: 'Hello! I\'m Mike, your team leader. How can I help you today? I can coordinate our team to build software, analyze data, or answer questions about our capabilities.'
+      };
+    }
+
+    if (thanks.some(t => lowerMessage.includes(t))) {
+      return {
+        type: 'chat',
+        complexity: 'simple',
+        requiredAgents: [],
+        shouldDelegate: false,
+        reasoning: 'Gratitude expression - acknowledge politely',
+        directResponse: 'You\'re welcome! Let me know if you need anything else.'
+      };
+    }
+
+    // Language preference changes
+    if (lowerMessage.includes('chinese') || lowerMessage.includes('中文')) {
+      return {
+        type: 'query',
+        complexity: 'simple',
+        requiredAgents: [],
+        shouldDelegate: false,
+        reasoning: 'Language preference - confirm and switch',
+        directResponse: '好的！我现在会用简体中文回复。有什么我可以帮助你的吗？'
+      };
+    }
+
+    // System capability queries
+    const capabilityQueries = ['what can you do', 'what are you', 'who are you', 'help', 'capabilities'];
+    if (capabilityQueries.some(q => lowerMessage.includes(q))) {
+      return {
+        type: 'query',
+        complexity: 'simple',
+        requiredAgents: [],
+        shouldDelegate: false,
+        reasoning: 'System capability query - explain directly',
+        directResponse: `I'm Mike, leading a team of AI agents:
+- Emma (Product Manager): Defines requirements and creates PRDs
+- Bob (System Architect): Designs system architecture
+- Alex (Full-stack Engineer): Implements features and writes code
+- David (Data Analyst): Analyzes data and creates insights
+
+We can help you build software, analyze data, design systems, or answer technical questions. What would you like to work on?`
+      };
+    }
+
+    // Use LLM for complex classification
+    const classificationPrompt = `Analyze this user request and classify it:
+
+User message: "${userMessage}"
+
+Classify as:
+1. Type: chat | query | simple_task | development
+2. Complexity: simple | medium | complex
+3. Required agents: [] for none, or list from [Emma, Bob, Alex, David]
+4. Should delegate: true/false
+
+Guidelines:
+- "chat": Greetings, thanks, casual conversation → No agents
+- "query": Questions about system, capabilities → No agents
+- "simple_task": Single feature, small change → 1 agent (usually Alex)
+- "development": Full project, multiple features → Multiple agents
+
+Examples:
+- "hi" → chat, simple, [], false
+- "create a button" → simple_task, simple, [Alex], true
+- "build a todo app" → development, medium, [Emma, Alex], true
+- "build e-commerce platform" → development, complex, [Emma, Bob, Alex, David], true
+
+Respond in JSON format:
+{
+  "type": "...",
+  "complexity": "...",
+  "requiredAgents": [...],
+  "shouldDelegate": true/false,
+  "reasoning": "..."
+}`;
+
+    try {
+      const response = await this.generateResponse(classificationPrompt);
+
+      const analysis = JSON.parse(response);
+      
+      // Map agent names to roles
+      const agentMap: Record<string, AgentRole> = {
+        'Emma': AgentRole.EMMA,
+        'Bob': AgentRole.BOB,
+        'Alex': AgentRole.ALEX,
+        'David': AgentRole.DAVID
+      };
+
+      return {
+        type: analysis.type,
+        complexity: analysis.complexity,
+        requiredAgents: analysis.requiredAgents.map((name: string) => agentMap[name]).filter(Boolean),
+        shouldDelegate: analysis.shouldDelegate,
+        reasoning: analysis.reasoning
+      };
+    } catch (error) {
+      console.error('Classification failed, defaulting to safe classification:', error);
+      // Default to medium complexity if classification fails
+      return {
+        type: 'development',
+        complexity: 'medium',
+        requiredAgents: [AgentRole.ALEX],
+        shouldDelegate: true,
+        reasoning: 'Classification failed - defaulting to safe delegation'
       };
     }
   }
 
   /**
-   * Process incoming message with intelligent classification
+   * Process message with intelligent routing
    */
   async processMessage(message: AgentMessage): Promise<AgentMessage | null> {
     if (message.type !== MessageType.USER_REQUEST) {
       return null;
     }
 
-    try {
-      // Step 1: Classify the request
-      const analysis = await this.classifyRequest(message.content);
+    // Classify the request
+    const analysis = await this.classifyRequest(message.content);
+    
+    console.log('Request Analysis:', analysis);
 
-      // Step 2: Handle based on classification
-      if (!analysis.shouldDelegate) {
-        // Simple request - respond directly
-        const response = analysis.directResponse || 
-          "I understand. How can I assist you further?";
-
+    // Handle direct responses
+    if (!analysis.shouldDelegate) {
+      if (analysis.directResponse) {
         return createAgentMessage(
           MessageType.AGENT_RESPONSE,
-          response,
-          this.role,
-          AgentRole.USER,
-          { analysis }
+          analysis.directResponse,
+          this.config.role,
+          AgentRole.USER
         );
       }
 
-      // Step 3: Complex request - create tasks and delegate
-      const tasks = await this.createTasksForRequest(message.content, analysis);
+      // Generate direct response using LLM
+      const response = await this.generateResponse(message.content);
 
       return createAgentMessage(
         MessageType.AGENT_RESPONSE,
-        this.formatTaskPlan(tasks, analysis),
-        this.role,
-        AgentRole.USER,
-        { tasks, analysis }
-      );
-
-    } catch (error) {
-      console.error('Error processing message:', error);
-      return createAgentMessage(
-        MessageType.AGENT_RESPONSE,
-        "I encountered an issue processing your request. Could you please try again?",
-        this.role,
+        response,
+        this.config.role,
         AgentRole.USER
       );
     }
-  }
 
-  /**
-   * Create tasks based on request analysis
-   */
-  private async createTasksForRequest(
-    userRequest: string,
-    analysis: RequestAnalysis
-  ): Promise<Task[]> {
-    const taskPrompt = `Based on this request and analysis, create a task breakdown.
-
-User request: "${userRequest}"
-Required agents: ${analysis.requiredAgents.join(', ')}
-Complexity: ${analysis.complexity}
-
-Create a concise task list. For medium complexity, create 1-2 tasks. For complex, create 3-5 tasks.
-
-Respond with a JSON array of tasks in this format:
-[
-  {
-    "id": "task-1",
-    "title": "Task title",
-    "description": "Detailed description",
-    "assignee": "AgentRole",
-    "priority": "high" | "medium" | "low",
-    "dependencies": [],
-    "estimatedTime": "1-2 days"
-  }
-]`;
-
-    try {
-      const response = await this.llm.chat([
-        { role: 'system', content: this.getSystemPrompt() },
-        { role: 'user', content: taskPrompt }
-      ]);
-
-      const jsonMatch = response.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        throw new Error('Invalid task format');
-      }
-
-      const taskData = JSON.parse(jsonMatch[0]);
+    // Handle delegation
+    if (analysis.complexity === 'simple' && analysis.requiredAgents.length === 1) {
+      // Single agent task
+      const response = `I'll help you with that. Let me assign this to ${this.getAgentName(analysis.requiredAgents[0])}.`;
       
-      return taskData.map((t: any) => ({
-        id: t.id || `task-${Date.now()}-${Math.random()}`,
-        title: t.title,
-        description: t.description,
-        assignee: t.assignee,
-        status: TaskStatus.PENDING,
-        priority: t.priority || 'medium',
-        dependencies: t.dependencies || [],
-        estimatedTime: t.estimatedTime,
-        createdAt: new Date(),
-      }));
-
-    } catch (error) {
-      console.error('Error creating tasks:', error);
-      
-      // Fallback: create a simple task for Alex
-      return [{
+      const tasks: Task[] = [{
         id: `task-${Date.now()}`,
-        title: 'Handle user request',
-        description: userRequest,
-        assignee: AgentRole.ALEX,
+        title: message.content.substring(0, 50),
+        description: message.content,
+        assignee: analysis.requiredAgents[0],
         status: TaskStatus.PENDING,
         priority: 'high',
-        dependencies: [],
         createdAt: new Date(),
+        updatedAt: new Date(),
       }];
+
+      return createAgentMessage(
+        MessageType.AGENT_RESPONSE,
+        response,
+        this.config.role,
+        AgentRole.USER,
+        { tasks }
+      );
     }
+
+    // Complex project - full analysis and planning
+    const analysisPrompt = `Analyze this project request and create a detailed plan:
+
+User Request: "${message.content}"
+
+Complexity: ${analysis.complexity}
+Required Team: ${analysis.requiredAgents.map(a => this.getAgentName(a)).join(', ')}
+
+Provide:
+1. Project overview (2-3 sentences)
+2. Task breakdown for each team member
+3. Estimated timeline
+4. Dependencies
+
+Format as a clear, structured response.`;
+
+    const planResponse = await this.generateResponse(analysisPrompt);
+
+    // Create tasks for team members
+    const tasks: Task[] = analysis.requiredAgents.map((agent, index) => ({
+      id: `task-${Date.now()}-${index}`,
+      title: `${this.getAgentName(agent)}'s contribution`,
+      description: `Work on: ${message.content}`,
+      assignee: agent,
+      status: TaskStatus.PENDING,
+      priority: 'high',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }));
+
+    return createAgentMessage(
+      MessageType.AGENT_RESPONSE,
+      planResponse,
+      this.config.role,
+      AgentRole.USER,
+      { tasks }
+    );
   }
 
   /**
-   * Format task plan for user
+   * Get friendly agent name
    */
-  private formatTaskPlan(tasks: Task[], analysis: RequestAnalysis): string {
-    const intro = analysis.complexity === 'medium' 
-      ? "I've analyzed your request. Here's what we'll do:"
-      : "I've created a comprehensive plan for your project:";
-
-    const taskList = tasks.map((task, index) => 
-      `${index + 1}. **${task.title}** (${task.assignee})\n   ${task.description}\n   Estimated: ${task.estimatedTime || 'TBD'}`
-    ).join('\n\n');
-
-    const agents = [...new Set(tasks.map(t => t.assignee))].join(', ');
-    const outro = `\nI'm assigning these tasks to: ${agents}\n\nThey'll start working on this right away!`;
-
-    return `${intro}\n\n${taskList}${outro}`;
+  private getAgentName(role: AgentRole): string {
+    const names: Record<AgentRole, string> = {
+      [AgentRole.USER]: 'User',
+      [AgentRole.MIKE]: 'Mike',
+      [AgentRole.EMMA]: 'Emma',
+      [AgentRole.BOB]: 'Bob',
+      [AgentRole.ALEX]: 'Alex',
+      [AgentRole.DAVID]: 'David',
+    };
+    return names[role] || role;
   }
 
   /**
-   * Execute task (Mike doesn't execute, only delegates)
+   * Execute task (Mike coordinates but doesn't execute directly)
    */
   async executeTask(task: Task): Promise<Task> {
     task.status = TaskStatus.COMPLETED;
     task.result = {
-      message: 'Task delegated to team members',
+      coordination: 'Task coordinated and delegated to team members',
+      completedAt: new Date().toISOString(),
     };
+    task.updatedAt = new Date();
     return task;
   }
 
   /**
-   * Get agent name
+   * Check if Mike can handle this task
    */
-  getName(): string {
-    return 'Mike';
+  canHandleTask(task: Task): boolean {
+    // Mike handles coordination and planning tasks
+    const keywords = ['coordinate', 'plan', 'organize', 'analyze requirements'];
+    const taskText = `${task.title} ${task.description}`.toLowerCase();
+    return keywords.some(keyword => taskText.includes(keyword));
   }
 }
