@@ -97,7 +97,7 @@ export function MessageBubble({ role, content, agentName, timestamp }: MessageBu
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeHighlight, rehypeRaw]}
                   components={{
-                    code({ node, className, children }) {
+                    code({ className, children }) {
                       const match = /language-(\w+)/.exec(className || '');
                       const codeContent = String(children).replace(/\n$/, '');
                       const isInline = !match && !className;
