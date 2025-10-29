@@ -9,57 +9,6 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      agents: {
-        Row: {
-          id: string
-          name: string
-          display_name: string
-          description: string
-          capabilities: string[]
-          system_prompt: string
-          config: Json | null
-          avatar_url: string | null
-          color: string | null
-          model_provider: string | null
-          model_name: string | null
-          is_active: boolean | null
-          created_at: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          id?: string
-          name: string
-          display_name: string
-          description: string
-          capabilities: string[]
-          system_prompt: string
-          config?: Json | null
-          avatar_url?: string | null
-          color?: string | null
-          model_provider?: string | null
-          model_name?: string | null
-          is_active?: boolean | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          id?: string
-          name?: string
-          display_name?: string
-          description?: string
-          capabilities?: string[]
-          system_prompt?: string
-          config?: Json | null
-          avatar_url?: string | null
-          color?: string | null
-          model_provider?: string | null
-          model_name?: string | null
-          is_active?: boolean | null
-          created_at?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       profiles: {
         Row: {
           id: string
@@ -96,6 +45,10 @@ export interface Database {
           user_id: string
           name: string
           description: string | null
+          permission: string | null
+          generated_code: Json | null
+          version: number | null
+          parent_project_id: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -104,6 +57,10 @@ export interface Database {
           user_id: string
           name: string
           description?: string | null
+          permission?: string | null
+          generated_code?: Json | null
+          version?: number | null
+          parent_project_id?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -112,6 +69,10 @@ export interface Database {
           user_id?: string
           name?: string
           description?: string | null
+          permission?: string | null
+          generated_code?: Json | null
+          version?: number | null
+          parent_project_id?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -120,25 +81,28 @@ export interface Database {
       conversations: {
         Row: {
           id: string
+          project_id: string
           user_id: string
-          title: string
           mode: string | null
+          title: string | null
           created_at: string | null
           updated_at: string | null
         }
         Insert: {
           id?: string
+          project_id: string
           user_id: string
-          title: string
           mode?: string | null
+          title?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
         Update: {
           id?: string
+          project_id?: string
           user_id?: string
-          title?: string
           mode?: string | null
+          title?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -148,78 +112,66 @@ export interface Database {
         Row: {
           id: string
           conversation_id: string
-          topic: string
           role: string
           agent_name: string | null
-          extension: string
           content: string
-          payload: Json | null
-          event: string | null
           metadata: Json | null
-          private: boolean | null
           created_at: string | null
-          updated_at: string
-          inserted_at: string
         }
         Insert: {
           id?: string
           conversation_id: string
-          topic?: string
           role: string
           agent_name?: string | null
-          extension?: string
           content: string
-          payload?: Json | null
-          event?: string | null
           metadata?: Json | null
-          private?: boolean | null
           created_at?: string | null
-          updated_at?: string
-          inserted_at?: string
         }
         Update: {
           id?: string
           conversation_id?: string
-          topic?: string
           role?: string
           agent_name?: string | null
-          extension?: string
           content?: string
-          payload?: Json | null
-          event?: string | null
           metadata?: Json | null
-          private?: boolean | null
           created_at?: string | null
-          updated_at?: string
-          inserted_at?: string
         }
         Relationships: []
       }
-      files: {
+      agents: {
         Row: {
           id: string
-          conversation_id: string
-          path: string
-          content: string
-          language: string | null
+          name: string
+          display_name: string
+          description: string
+          capabilities: string[]
+          system_prompt: string
+          config: Json | null
+          is_active: boolean | null
           created_at: string | null
           updated_at: string | null
         }
         Insert: {
           id?: string
-          conversation_id: string
-          path: string
-          content: string
-          language?: string | null
+          name: string
+          display_name: string
+          description: string
+          capabilities?: string[]
+          system_prompt: string
+          config?: Json | null
+          is_active?: boolean | null
           created_at?: string | null
           updated_at?: string | null
         }
         Update: {
           id?: string
-          conversation_id?: string
-          path?: string
-          content?: string
-          language?: string | null
+          name?: string
+          display_name?: string
+          description?: string
+          capabilities?: string[]
+          system_prompt?: string
+          config?: Json | null
+          is_active?: boolean | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -232,11 +184,12 @@ export interface Database {
           agent_id: string
           input: Json
           output: Json | null
-          status: string
-          error: string | null
-          started_at: string
+          status: string | null
+          error_message: string | null
+          tokens_used: number | null
+          execution_time_ms: number | null
+          created_at: string | null
           completed_at: string | null
-          metrics: Json | null
         }
         Insert: {
           id?: string
@@ -244,11 +197,12 @@ export interface Database {
           agent_id: string
           input: Json
           output?: Json | null
-          status: string
-          error?: string | null
-          started_at?: string
+          status?: string | null
+          error_message?: string | null
+          tokens_used?: number | null
+          execution_time_ms?: number | null
+          created_at?: string | null
           completed_at?: string | null
-          metrics?: Json | null
         }
         Update: {
           id?: string
@@ -256,65 +210,114 @@ export interface Database {
           agent_id?: string
           input?: Json
           output?: Json | null
-          status?: string
-          error?: string | null
-          started_at?: string
+          status?: string | null
+          error_message?: string | null
+          tokens_used?: number | null
+          execution_time_ms?: number | null
+          created_at?: string | null
           completed_at?: string | null
-          metrics?: Json | null
         }
         Relationships: []
       }
-      deployments: {
+      files: {
         Row: {
           id: string
-          conversation_id: string
-          version: string
-          url: string | null
-          status: string
+          project_id: string
+          user_id: string
+          name: string
+          path: string
+          content: string | null
+          storage_path: string | null
+          size: number | null
+          mime_type: string | null
           created_at: string | null
-          updated_at: string | null
         }
         Insert: {
           id?: string
-          conversation_id: string
-          version: string
-          url?: string | null
-          status: string
+          project_id: string
+          user_id: string
+          name: string
+          path: string
+          content?: string | null
+          storage_path?: string | null
+          size?: number | null
+          mime_type?: string | null
           created_at?: string | null
-          updated_at?: string | null
         }
         Update: {
           id?: string
-          conversation_id?: string
-          version?: string
-          url?: string | null
-          status?: string
+          project_id?: string
+          user_id?: string
+          name?: string
+          path?: string
+          content?: string | null
+          storage_path?: string | null
+          size?: number | null
+          mime_type?: string | null
           created_at?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
       versions: {
         Row: {
           id: string
-          conversation_id: string
+          project_id: string
           version_number: number
+          snapshot: Json
           description: string | null
           created_at: string | null
         }
         Insert: {
           id?: string
-          conversation_id: string
+          project_id: string
           version_number: number
+          snapshot: Json
           description?: string | null
           created_at?: string | null
         }
         Update: {
           id?: string
-          conversation_id?: string
+          project_id?: string
           version_number?: number
+          snapshot?: Json
           description?: string | null
           created_at?: string | null
+        }
+        Relationships: []
+      }
+      deployments: {
+        Row: {
+          id: string
+          project_id: string
+          user_id: string
+          url: string
+          status: string | null
+          config: Json | null
+          error_message: string | null
+          created_at: string | null
+          deployed_at: string | null
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          user_id: string
+          url: string
+          status?: string | null
+          config?: Json | null
+          error_message?: string | null
+          created_at?: string | null
+          deployed_at?: string | null
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          user_id?: string
+          url?: string
+          status?: string | null
+          config?: Json | null
+          error_message?: string | null
+          created_at?: string | null
+          deployed_at?: string | null
         }
         Relationships: []
       }

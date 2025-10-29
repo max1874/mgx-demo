@@ -22,7 +22,10 @@ export function Sidebar() {
     currentConversationId, 
     conversations, 
     setCurrentConversation, 
-    refreshConversations 
+    refreshConversations,
+    workspaceProjectId,
+    ensureWorkspaceProject,
+    workspaceLoading,
   } = useLayout();
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -32,7 +35,15 @@ export function Sidebar() {
 
     setIsCreating(true);
     try {
+      const projectId = workspaceProjectId || (await ensureWorkspaceProject());
+
+      if (!projectId) {
+        toast.error('Workspace project is not ready yet. Please try again shortly.');
+        return;
+      }
+
       const { data, error } = await createConversation({
+        project_id: projectId,
         user_id: user.id,
         title: 'New Conversation',
         mode: 'team',
@@ -41,7 +52,7 @@ export function Sidebar() {
       if (error) throw error;
 
       toast.success('Conversation created successfully');
-      await refreshConversations();
+      await refreshConversations(projectId);
       if (data) {
         setCurrentConversation(data.id);
       }
@@ -79,7 +90,9 @@ export function Sidebar() {
   };
 
   const filteredConversations = conversations.filter(conversation =>
-    conversation.title.toLowerCase().includes(searchQuery.toLowerCase())
+    (conversation.title || 'Untitled Conversation')
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -92,7 +105,7 @@ export function Sidebar() {
             size="icon"
             variant="ghost"
             onClick={handleCreateConversation}
-            disabled={isCreating}
+            disabled={isCreating || workspaceLoading}
             title="New conversation"
           >
             <Plus className="h-4 w-4" />
@@ -124,7 +137,7 @@ export function Sidebar() {
             >
               <MessageSquare className="h-4 w-4 shrink-0" />
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{conversation.title}</div>
+                <div className="font-medium truncate">{conversation.title || 'Untitled Conversation'}</div>
                 {conversation.updated_at && (
                   <div className="text-xs opacity-70 truncate">
                     {formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true })}

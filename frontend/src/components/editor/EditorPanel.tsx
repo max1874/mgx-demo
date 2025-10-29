@@ -2,7 +2,6 @@
  * Editor Panel Component
  * 
  * Right panel for viewing and editing project files.
- * Updated to work with conversations instead of projects.
  */
 
 import { useState, useEffect } from 'react';
@@ -17,13 +16,13 @@ import type { Database } from '@/types/database';
 type FileType = Database['public']['Tables']['files']['Row'];
 
 export function EditorPanel() {
-  const { currentConversationId, currentFileId, setCurrentFile, toggleEditor } = useLayout();
+  const { currentConversationId, currentFileId, setCurrentFile, toggleEditor, workspaceProjectId } = useLayout();
   const [files, setFiles] = useState<FileType[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch files for current conversation
+  // Fetch files for current workspace project
   useEffect(() => {
-    if (!currentConversationId) {
+    if (!workspaceProjectId) {
       setFiles([]);
       return;
     }
@@ -34,7 +33,7 @@ export function EditorPanel() {
         const { data, error } = await supabase
           .from('files')
           .select('*')
-          .eq('conversation_id', currentConversationId)
+          .eq('project_id', workspaceProjectId)
           .order('path');
 
         if (error) throw error;
@@ -47,7 +46,7 @@ export function EditorPanel() {
     };
 
     fetchFiles();
-  }, [currentConversationId]);
+  }, [workspaceProjectId]);
 
   const currentFile = files.find(f => f.id === currentFileId);
 
@@ -124,9 +123,9 @@ export function EditorPanel() {
                     <Folder className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-medium">{currentFile.path}</span>
                   </div>
-                  {currentFile.language && (
+                  {currentFile.mime_type && (
                     <span className="text-xs text-muted-foreground">
-                      Language: {currentFile.language}
+                      MIME type: {currentFile.mime_type}
                     </span>
                   )}
                 </div>

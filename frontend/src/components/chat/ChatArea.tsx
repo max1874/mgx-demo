@@ -35,6 +35,7 @@ interface PendingMessage {
   role: 'user' | 'assistant';
   content: string;
   agent_name?: string;
+  conversation_id: string;
   created_at: string;
   isPending: true;
 }
@@ -75,7 +76,13 @@ const agents = [
 
 export function ChatArea() {
   const { user } = useAuth();
-  const { currentConversationId, setCurrentConversation, refreshConversations } = useLayout();
+  const { 
+    currentConversationId, 
+    setCurrentConversation, 
+    refreshConversations,
+    workspaceProjectId,
+    ensureWorkspaceProject,
+  } = useLayout();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<PendingMessage[]>([]);
@@ -97,20 +104,22 @@ export function ChatArea() {
   // Combine real messages with pending messages
   const allMessages = [
     ...messages,
-    ...pendingMessages.map(msg => ({
-      ...msg,
-      conversation_id: currentConversationId || '',
-      topic: '',
-      extension: '',
-      payload: null,
-      event: null,
-      metadata: null,
-      private: false,
-      updated_at: msg.created_at,
-      inserted_at: msg.created_at,
-    } as Message))
-  ].sort((a, b) => 
-    new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+    ...pendingMessages.map(
+      (msg) =>
+        ({
+          id: msg.id,
+          conversation_id: msg.conversation_id,
+          role: msg.role,
+          agent_name: msg.agent_name ?? null,
+          content: msg.content,
+          metadata: null,
+          created_at: msg.created_at,
+        } as Message)
+    ),
+  ].sort(
+    (a, b) =>
+      new Date(a.created_at || 0).getTime() -
+      new Date(b.created_at || 0).getTime()
   );
 
   // Initialize orchestrator when conversation is ready
@@ -162,12 +171,19 @@ export function ChatArea() {
   /**
    * Initialize or create new conversation
    */
-  const initializeConversation = async () => {
-    if (!user) return;
+  const initializeConversation = async (): Promise<string | null> => {
+    if (!user) return null;
 
     try {
+      const projectId = workspaceProjectId || (await ensureWorkspaceProject());
+      if (!projectId) {
+        toast.error('Workspace project is not ready yet. Please try again.');
+        return null;
+      }
+
       // Create a new conversation
       const { data, error } = await createConversation({
+        project_id: projectId,
         user_id: user.id,
         title: 'New Conversation',
         mode: 'team',
@@ -176,12 +192,15 @@ export function ChatArea() {
       if (error) throw error;
       if (data) {
         setCurrentConversation(data.id);
-        await refreshConversations();
+        await refreshConversations(projectId);
+        return data.id;
       }
     } catch (err) {
       console.error('Error initializing conversation:', err);
       toast.error('Failed to initialize conversation');
     }
+
+    return null;
   };
 
   /**
@@ -190,11 +209,16 @@ export function ChatArea() {
   const handleSend = async () => {
     if (!input.trim() || isSending) return;
 
+    let activeConversationId = currentConversationId;
+
     // If no conversation, create one first
-    if (!currentConversationId) {
-      await initializeConversation();
-      // Wait a bit for conversation to be created
-      await new Promise(resolve => setTimeout(resolve, 500));
+    if (!activeConversationId) {
+      activeConversationId = await initializeConversation();
+      if (!activeConversationId) {
+        return;
+      }
+      // Wait briefly for state and orchestrator to settle
+      await new Promise(resolve => setTimeout(resolve, 400));
     }
 
     if (!orchestratorRef.current) {
@@ -212,6 +236,7 @@ export function ChatArea() {
       id: `pending-${Date.now()}`,
       role: 'user',
       content: messageContent,
+      conversation_id: activeConversationId,
       created_at: new Date().toISOString(),
       isPending: true,
     };

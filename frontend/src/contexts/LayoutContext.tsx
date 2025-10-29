@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
-import { getConversationsByUser } from '@/lib/api/conversations';
+import { getConversationsByProject } from '@/lib/api/conversations';
+import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
 
 type Conversation = Database['public']['Tables']['conversations']['Row'];
@@ -11,11 +12,14 @@ interface LayoutContextType {
   currentConversationId: string | null;
   currentFileId: string | null;
   conversations: Conversation[];
+  workspaceProjectId: string | null;
+  workspaceLoading: boolean;
   toggleSidebar: () => void;
   toggleEditor: () => void;
   setCurrentConversation: (conversationId: string | null) => void;
   setCurrentFile: (fileId: string | null) => void;
-  refreshConversations: () => Promise<void>;
+  refreshConversations: (projectId?: string) => Promise<void>;
+  ensureWorkspaceProject: () => Promise<string | null>;
 }
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
@@ -27,18 +31,79 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [currentFileId, setCurrentFileId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [workspaceProjectId, setWorkspaceProjectId] = useState<string | null>(null);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
 
   const toggleSidebar = () => setSidebarOpen(prev => !prev);
   const toggleEditor = () => setEditorOpen(prev => !prev);
   const setCurrentConversation = (conversationId: string | null) => setCurrentConversationId(conversationId);
   const setCurrentFile = (fileId: string | null) => setCurrentFileId(fileId);
 
+  const ensureWorkspaceProject = useCallback(async (): Promise<string | null> => {
+    if (!user) return null;
+
+    if (workspaceProjectId) {
+      return workspaceProjectId;
+    }
+
+    try {
+      setWorkspaceLoading(true);
+
+      const { data: existingProjects, error: projectError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(1);
+
+      if (projectError) throw projectError;
+
+      if (existingProjects && existingProjects.length > 0) {
+        const projectId = existingProjects[0].id;
+        setWorkspaceProjectId(projectId);
+        return projectId;
+      }
+
+      const { data: newProject, error: createError } = await supabase
+        .from('projects')
+        .insert({
+          user_id: user.id,
+          name: 'My Workspace',
+          description: 'Auto-created workspace project',
+          permission: 'private',
+        })
+        .select('id')
+        .single();
+
+      if (createError) throw createError;
+
+      if (newProject) {
+        setWorkspaceProjectId(newProject.id);
+        return newProject.id;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error ensuring workspace project:', error);
+      return null;
+    } finally {
+      setWorkspaceLoading(false);
+    }
+  }, [user, workspaceProjectId]);
+
   // Fetch user's conversations with error handling
-  const refreshConversations = useCallback(async () => {
+  const refreshConversations = useCallback(async (projectIdOverride?: string) => {
     if (!user) return;
 
     try {
-      const { data, error } = await getConversationsByUser(user.id);
+      const projectId =
+        projectIdOverride ||
+        workspaceProjectId ||
+        (await ensureWorkspaceProject());
+
+      if (!projectId) return;
+
+      const { data, error } = await getConversationsByProject(projectId);
 
       if (error) {
         console.error('Error fetching conversations:', error);
@@ -54,17 +119,24 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Error in refreshConversations:', error);
     }
-  }, [user, currentConversationId]);
+  }, [user, currentConversationId, workspaceProjectId, ensureWorkspaceProject]);
 
   // Load conversations when user changes
   useEffect(() => {
     if (user) {
-      refreshConversations();
+      (async () => {
+        const projectId = await ensureWorkspaceProject();
+        if (projectId) {
+          await refreshConversations(projectId);
+        }
+      })();
     } else {
       setConversations([]);
       setCurrentConversationId(null);
+      setWorkspaceProjectId(null);
+      setWorkspaceLoading(false);
     }
-  }, [user, refreshConversations]);
+  }, [user, ensureWorkspaceProject, refreshConversations]);
 
   const value = {
     sidebarOpen,
@@ -72,11 +144,14 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
     currentConversationId,
     currentFileId,
     conversations,
+    workspaceProjectId,
+    workspaceLoading,
     toggleSidebar,
     toggleEditor,
     setCurrentConversation,
     setCurrentFile,
     refreshConversations,
+    ensureWorkspaceProject,
   };
 
   return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>;
