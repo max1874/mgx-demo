@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { supabase } from '@/lib/supabase';
 import type { Database } from '@/types/database';
@@ -37,8 +37,8 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
   const setCurrentConversation = (conversationId: string | null) => setCurrentConversationId(conversationId);
   const setCurrentFile = (fileId: string | null) => setCurrentFileId(fileId);
 
-  // Fetch user's projects
-  const refreshProjects = async () => {
+  // Fetch user's projects with error handling
+  const refreshProjects = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -48,7 +48,12 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching projects:', error);
+        // Don't throw, just log the error
+        return;
+      }
+      
       setProjects(data || []);
 
       // If no current project and projects exist, select the first one
@@ -56,9 +61,9 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
         setCurrentProjectState(data[0]);
       }
     } catch (error) {
-      console.error('Error fetching projects:', error);
+      console.error('Error in refreshProjects:', error);
     }
-  };
+  }, [user, currentProject]);
 
   // Load projects when user changes
   useEffect(() => {
@@ -68,7 +73,7 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
       setProjects([]);
       setCurrentProjectState(null);
     }
-  }, [user]);
+  }, [user, refreshProjects]);
 
   const value = {
     sidebarOpen,
@@ -88,10 +93,10 @@ export function LayoutProvider({ children }: { children: React.ReactNode }) {
   return <LayoutContext.Provider value={value}>{children}</LayoutContext.Provider>;
 }
 
-export function useLayout() {
+export const useLayout = () => {
   const context = useContext(LayoutContext);
   if (context === undefined) {
     throw new Error('useLayout must be used within a LayoutProvider');
   }
   return context;
-}
+};
