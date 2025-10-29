@@ -32,7 +32,6 @@ const agentAvatars: Record<string, string> = {
   Bob: '/images/Bob-Architect-Avatar.Dwg49-6j.png',
   Alex: '/images/Alex-Engineer-Avatar.DMF78Ta0.png',
   David: '/images/David-DataAnalyst-Avatar.JI1m4RZ8.png',
-  Iris: 'https://ui-avatars.com/api/?name=Iris&background=6366f1&color=fff&size=128',
 };
 
 const agentColors: Record<string, string> = {
@@ -41,7 +40,6 @@ const agentColors: Record<string, string> = {
   Bob: 'bg-purple-500',
   Alex: 'bg-green-500',
   David: 'bg-orange-500',
-  Iris: 'bg-indigo-500',
 };
 
 function MessageBubbleComponent({

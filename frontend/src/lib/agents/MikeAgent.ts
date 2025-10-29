@@ -28,7 +28,6 @@ Your responsibilities:
    - Bob (System Architect): Technical architecture, system design, database schema
    - Alex (Full-stack Engineer): Frontend/backend development, code implementation
    - David (Data Analyst): Data processing, analysis, visualization
-   - Iris (Deep Research Specialist): In-depth research, report generation
 3. Coordinate team collaboration and resolve conflicts
 4. Monitor progress and provide guidance
 5. Ensure deliverables meet quality standards
@@ -123,7 +122,7 @@ User Request: "${userRequest}"
 
 Please provide:
 1. Project type (web app, data analysis, research, etc.)
-2. Required team members (Emma, Bob, Alex, David, Iris)
+2. Required team members (Emma, Bob, Alex, David)
 3. Task breakdown with priorities
 4. Estimated complexity (simple/medium/complex)
 

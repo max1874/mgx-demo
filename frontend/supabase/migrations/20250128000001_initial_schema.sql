@@ -74,7 +74,7 @@ CREATE TABLE messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
-  agent_name TEXT CHECK (agent_name IN ('Mike', 'Emma', 'Bob', 'Alex', 'David', 'Iris', NULL)),
+  agent_name TEXT CHECK (agent_name IN ('Mike', 'Emma', 'Bob', 'Alex', 'David', NULL)),
   content TEXT NOT NULL,
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -271,14 +271,6 @@ INSERT INTO agents (name, display_name, description, capabilities, system_prompt
   ARRAY['data_analysis', 'data_visualization', 'statistical_analysis', 'report_generation'],
   'You are David, a data analyst. Your role is to process data, perform statistical analysis, create visualizations, and generate insights. You excel at transforming raw data into actionable intelligence.',
   '{"model": "gpt-4", "temperature": 0.5, "max_tokens": 3000}'::jsonb
-),
-(
-  'iris',
-  'Iris',
-  'Research Specialist - Conducts deep research and generates reports',
-  ARRAY['deep_research', 'information_retrieval', 'report_writing', 'knowledge_synthesis'],
-  'You are Iris, a research specialist. Your role is to conduct deep research, retrieve information from multiple sources, synthesize knowledge, and generate comprehensive, well-structured reports with proper citations.',
-  '{"model": "gemini-2.5-pro", "temperature": 0.6, "max_tokens": 8000}'::jsonb
 );
 
 -- ============================================================================

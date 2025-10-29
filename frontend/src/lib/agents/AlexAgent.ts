@@ -251,7 +251,7 @@ Provide the complete code with explanatory comments.`;
       return 'David (Data Analyst)';
     }
     if (description.includes('research') || description.includes('report')) {
-      return 'Iris (Deep Research Specialist)';
+      return 'Mike (Team Leader)';
     }
     
     return 'another team member';

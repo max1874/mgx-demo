@@ -56,7 +56,7 @@ export class AgentOrchestrator {
     this.agents = new Map();
     this.agents.set(AgentRole.MIKE, new MikeAgent(this.llmProvider));
     this.agents.set(AgentRole.ALEX, new AlexAgent(this.llmProvider));
-    // TODO: Add Emma, Bob, David, Iris when implemented
+    // TODO: Add Emma, Bob, David when implemented
   }
 
   /**

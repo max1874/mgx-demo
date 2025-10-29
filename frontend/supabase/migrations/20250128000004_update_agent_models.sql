@@ -26,9 +26,3 @@ WHERE name = 'alex';
 UPDATE agents 
 SET config = jsonb_set(config, '{model}', '"openai/gpt-5"')
 WHERE name = 'david';
-
--- Iris already uses Gemini 2.5 Pro, no update needed
--- But let's ensure it's the correct version
-UPDATE agents 
-SET config = jsonb_set(config, '{model}', '"google/gemini-2.5-pro"')
-WHERE name = 'iris';

@@ -1,6 +1,6 @@
 import { Bot, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 
-type AgentName = 'Mike' | 'Emma' | 'Bob' | 'Alex' | 'David' | 'Iris';
+type AgentName = 'Mike' | 'Emma' | 'Bob' | 'Alex' | 'David';
 type AgentState = 'idle' | 'thinking' | 'executing' | 'completed' | 'failed';
 
 interface AgentStatusIndicatorProps {
@@ -14,7 +14,6 @@ const AGENT_COLORS: Record<AgentName, string> = {
   Bob: 'bg-green-500',
   Alex: 'bg-orange-500',
   David: 'bg-cyan-500',
-  Iris: 'bg-pink-500',
 };
 
 const STATE_CONFIG: Record<AgentState, { icon: typeof Bot; label: string; animate: boolean }> = {

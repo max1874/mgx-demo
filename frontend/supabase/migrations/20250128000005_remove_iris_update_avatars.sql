@@ -2,7 +2,7 @@
 -- This migration removes the Iris agent and updates avatar URLs to use local images
 
 -- Delete Iris agent
-DELETE FROM agents WHERE name = 'iris';
+DELETE FROM agents WHERE name = 'Iris';
 
 -- Update avatar URLs to use local images
 UPDATE agents SET config = jsonb_set(config, '{avatar_url}', '"/avatars/mike.png"') WHERE name = 'mike';

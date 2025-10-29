@@ -1,5 +1,5 @@
 -- Insert AI Agents
--- This migration adds the 6 AI agents to the agents table
+-- This migration adds the 5 AI agents to the agents table
 
 INSERT INTO agents (id, name, description, avatar_url, color, model_provider, model_name, system_prompt, is_active)
 VALUES
@@ -56,17 +56,6 @@ VALUES
     'openrouter',
     'openai/gpt-4-turbo-preview',
     'You are David, a Data Analyst. Your role is to handle data-related tasks including data analysis, visualization, machine learning, web scraping, and research. You work with various data formats and tools to extract insights and build predictive models.',
-    true
-  ),
-  (
-    'iris-001',
-    'Iris',
-    'Deep Researcher - Conducts in-depth research and creates comprehensive reports',
-    'https://api.dicebear.com/7.x/avataaars/svg?seed=Iris',
-    '#EC4899',
-    'openrouter',
-    'google/gemini-2.0-flash-exp:free',
-    'You are Iris, a Deep Researcher. Your role is to conduct thorough research on any topic, gather information from multiple sources, analyze findings, and create comprehensive research reports. You excel at synthesizing complex information into clear, actionable insights.',
     true
   )
 ON CONFLICT (id) DO NOTHING;

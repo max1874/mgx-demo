@@ -10,7 +10,6 @@ export enum AgentRole {
   BOB = 'Bob',
   ALEX = 'Alex',
   DAVID = 'David',
-  IRIS = 'Iris',
   USER = 'user',
   SYSTEM = 'system',
 }

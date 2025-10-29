@@ -34,7 +34,7 @@ The MGX Demo platform uses Supabase (PostgreSQL) as its primary backend service,
    - Includes agent name and metadata (code blocks, file references)
 
 5. **agents** - AI agent definitions
-   - Defines available AI agents (Mike, Emma, Bob, Alex, David, Iris)
+   - Defines available AI agents (Mike, Emma, Bob, Alex, David)
    - Stores system prompts and configuration
 
 6. **agent_executions** - Execution logs

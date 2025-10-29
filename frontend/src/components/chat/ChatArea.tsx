@@ -57,12 +57,6 @@ const agents = [
     color: 'bg-orange-500', 
     title: 'Data Analyst' 
   },
-  { 
-    name: 'Iris', 
-    avatar: 'https://ui-avatars.com/api/?name=Iris&background=6366f1&color=fff&size=128', 
-    color: 'bg-indigo-500', 
-    title: 'Deep Research Specialist' 
-  },
 ];
 
 export function ChatArea() {
