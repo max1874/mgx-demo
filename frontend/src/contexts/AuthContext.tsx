@@ -102,14 +102,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Sign up new user
   const signUp = async (email: string, password: string, username: string) => {
     try {
-      // Create auth user
+      // Create auth user with autoConfirm option to skip email verification
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: undefined, // Disable email confirmation
+          data: {
+            username, // Store username in user metadata
+          }
+        }
       });
 
       if (authError) return { error: authError };
       if (!authData.user) return { error: new Error('User creation failed') as AuthError };
+
+      // If email confirmation is required (session is null), try to sign in immediately
+      // This works if email confirmation is disabled in Supabase settings
+      if (!authData.session) {
+        console.log('No session after signup, attempting auto sign-in...');
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          console.error('Auto sign-in failed:', signInError);
+          return { error: signInError };
+        }
+      }
 
       // Create profile
       const { error: profileError } = await supabase

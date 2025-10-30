@@ -27,12 +27,31 @@ export function LoginPage() {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
         if (error) throw error;
-        toast.success('Check your email for the confirmation link!');
+
+        // If email confirmation is disabled, session will be returned
+        // Otherwise, try to sign in immediately
+        if (data.session) {
+          toast.success('Account created successfully!');
+          navigate('/');
+        } else {
+          // Try to sign in immediately (works if email confirmation is disabled)
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          });
+          if (signInError) {
+            // If auto sign-in fails, it means email confirmation is required
+            toast.success('Check your email for the confirmation link!');
+          } else {
+            toast.success('Account created successfully!');
+            navigate('/');
+          }
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
