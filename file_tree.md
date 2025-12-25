@@ -309,9 +309,9 @@ Agent seed data:
 #### `.env` (Updated)
 Environment variables:
 ```
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-VITE_OPENROUTER_API_KEY=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
+VITE_SUPABASE_URL=your_supabase_url_here
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+VITE_OPENROUTER_API_KEY=your_openrouter_api_key_here
 ```
 
 #### `package.json` (Updated)
