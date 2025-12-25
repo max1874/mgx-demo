@@ -63,7 +63,6 @@ Inspired by products like [Devin](https://www.cognition-labs.com/devin), [MetaGP
 <td align="center"><sub>Designs system<br/>architecture</sub></td>
 <td align="center"><sub>Develops and<br/>deploys apps</sub></td>
 <td align="center"><sub>Processes and<br/>analyzes data</sub></td>
-<td align="center"><sub>Conducts research<br/>and gathers info</sub></td>
 </tr>
 </table>
 
