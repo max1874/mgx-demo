@@ -56,11 +56,6 @@ Inspired by products like [Devin](https://www.cognition-labs.com/devin), [MetaGP
 <b>David</b><br />
 <sub>Data Analyst</sub>
 </td>
-<td align="center" width="120">
-<img src="./frontend/public/images/Iris.jpg" width="80" height="80" /><br />
-<b>Iris</b><br />
-<sub>Researcher</sub>
-</td>
 </tr>
 <tr>
 <td align="center"><sub>Coordinates tasks<br/>and manages team</sub></td>
